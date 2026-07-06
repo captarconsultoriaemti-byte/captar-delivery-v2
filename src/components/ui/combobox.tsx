@@ -11,20 +11,29 @@ interface ComboboxProps {
   options: ComboboxOption[];
   value: string;
   onChange: (value: string) => void;
+  onQueryChange?: (text: string) => void;
   placeholder?: string;
   disabled?: boolean;
 }
 
-export function Combobox({ options, value, onChange, placeholder, disabled }: ComboboxProps) {
+export function Combobox({
+  options,
+  value,
+  onChange,
+  onQueryChange,
+  placeholder,
+  disabled,
+}: ComboboxProps) {
   const selected = options.find((o) => o.value === value);
   const [query, setQuery] = useState(selected?.label ?? "");
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
     setQuery(selected?.label ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -35,7 +44,6 @@ export function Combobox({ options, value, onChange, placeholder, disabled }: Co
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
   const filtered = options.filter((o) =>
@@ -50,13 +58,14 @@ export function Combobox({ options, value, onChange, placeholder, disabled }: Co
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
+          onQueryChange?.(e.target.value);
         }}
         onFocus={() => setOpen(true)}
         placeholder={placeholder}
-        className="w-full rounded-md border border-secondary/30 px-3 py-2 text-sm focus:border-primary focus:outline-none disabled:bg-secondary/10"
+        className="w-full rounded-md border border-secondary/55 px-3 py-2 text-sm focus:border-primary focus:outline-none disabled:bg-secondary/10"
       />
       {open && filtered.length > 0 && (
-        <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-secondary/20 bg-white shadow-lg">
+        <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border border-secondary/45 bg-white shadow-lg">
           {filtered.map((option) => (
             <li key={option.value}>
               <button

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
+import { slugify } from "@/lib/utils/slug";
 
 interface ActionResult<T> {
   error?: string;
@@ -19,9 +20,12 @@ async function requireAdminMaster(): Promise<ActionResult<never> | null> {
 }
 
 function empresaColumnsFromFormData(formData: FormData) {
+  const slugBruto = String(formData.get("slug") ?? "");
+
   return {
     nome: String(formData.get("nome") ?? ""),
     email: String(formData.get("email") ?? ""),
+    slug: slugBruto ? slugify(slugBruto) : null,
     tipo_estabelecimento_id: String(formData.get("tipoEstabelecimentoId") ?? ""),
     cnpj: String(formData.get("cnpj") ?? ""),
     nome_responsavel: String(formData.get("nomeResponsavel") ?? ""),
@@ -34,6 +38,13 @@ function empresaColumnsFromFormData(formData: FormData) {
     cidade: String(formData.get("cidade") ?? ""),
     estado: String(formData.get("estado") ?? ""),
   };
+}
+
+function erroSlugDuplicado(error: { code?: string } | null): string | null {
+  if (error?.code === "23505") {
+    return "Esse endereço de link já está em uso por outra empresa. Escolha outro.";
+  }
+  return null;
 }
 
 async function uploadLogoSeExistir(
@@ -111,7 +122,12 @@ export async function createEmpresa(formData: FormData): Promise<ActionResult<Re
       };
     }
 
-    return { error: empresaError?.message ?? "Nao foi possivel criar a empresa." };
+    return {
+      error:
+        erroSlugDuplicado(empresaError) ??
+        empresaError?.message ??
+        "Nao foi possivel criar a empresa.",
+    };
   }
 
   const { error: profileError } = await supabase.from("profiles").insert({
@@ -161,6 +177,7 @@ export async function updateEmpresa(
   // e-mail nao e editavel aqui: esta atrelado ao usuario de login (auth.users) da empresa
   const {
     nome,
+    slug,
     tipo_estabelecimento_id,
     cnpj,
     nome_responsavel,
@@ -178,6 +195,7 @@ export async function updateEmpresa(
     .from("empresas")
     .update({
       nome,
+      slug,
       tipo_estabelecimento_id,
       cnpj,
       nome_responsavel,
@@ -193,7 +211,7 @@ export async function updateEmpresa(
     })
     .eq("id", empresaId);
 
-  if (error) return { error: error.message };
+  if (error) return { error: erroSlugDuplicado(error) ?? error.message };
 
   revalidatePath("/admin/empresas");
   return { data: true };

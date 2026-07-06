@@ -21,7 +21,7 @@ export function NumberedTable<T>({
   return (
     <table className="w-full text-left text-sm">
       <thead>
-        <tr className="border-b border-secondary/20 text-secondary">
+        <tr className="border-b border-secondary/45 text-secondary">
           <th className="w-12 py-2 pr-2 font-medium">#</th>
           {columns.map((col) => (
             <th key={col.header} className="py-2 pr-4 font-medium">
@@ -39,7 +39,7 @@ export function NumberedTable<T>({
           </tr>
         ) : (
           rows.map((row, index) => (
-            <tr key={rowKey(row)} className="border-b border-secondary/10">
+            <tr key={rowKey(row)} className="border-b border-secondary/30">
               <td className="py-2 pr-2 text-secondary">{index + 1}</td>
               {columns.map((col) => (
                 <td key={col.header} className="py-2 pr-4">

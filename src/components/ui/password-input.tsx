@@ -11,7 +11,7 @@ export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
       <input
         {...props}
         type={visible ? "text" : "password"}
-        className={`w-full rounded-md border border-secondary/30 px-3 py-2 pr-10 text-sm focus:border-primary focus:outline-none ${props.className ?? ""}`}
+        className={`w-full rounded-md border border-secondary/55 px-3 py-2 pr-10 text-sm focus:border-primary focus:outline-none ${props.className ?? ""}`}
       />
       <button
         type="button"

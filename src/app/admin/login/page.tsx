@@ -38,16 +38,15 @@ export default function AdminLoginPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-lg bg-white p-8 shadow-md"
       >
-        <h1 className="mb-1 text-xl font-bold text-primary">CAPTAR Delivery</h1>
-        <p className="mb-6 text-sm text-secondary">Acesso do Admin Master</p>
+        <h1 className="mb-6 text-xl font-bold text-primary">CAPTAR Delivery</h1>
 
-        <label className="mb-1 block text-sm font-medium">E-mail</label>
+        <label className="mb-1 block text-sm font-medium">Login</label>
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mb-4 w-full rounded-md border border-secondary/30 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+          className="mb-4 w-full rounded-md border border-secondary/55 px-3 py-2 text-sm focus:border-primary focus:outline-none"
         />
 
         <label className="mb-1 block text-sm font-medium">Senha</label>

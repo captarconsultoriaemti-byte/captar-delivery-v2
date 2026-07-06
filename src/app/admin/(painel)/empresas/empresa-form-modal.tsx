@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { IconAction } from "@/components/ui/icon-action";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/components/ui/toast";
@@ -14,6 +16,7 @@ import {
   type Estado,
 } from "@/lib/utils/endereco";
 import { createEmpresa, updateEmpresa } from "@/lib/actions/empresas";
+import { slugify } from "@/lib/utils/slug";
 
 interface TipoEstabelecimento {
   id: string;
@@ -24,6 +27,7 @@ export interface EmpresaParaEdicao {
   id: string;
   nome: string;
   email: string;
+  slug: string | null;
   tipo_estabelecimento_id: string | null;
   cnpj: string | null;
   nome_responsavel: string | null;
@@ -35,6 +39,7 @@ export interface EmpresaParaEdicao {
   bairro: string | null;
   cidade: string | null;
   estado: string | null;
+  logo_url: string | null;
 }
 
 interface EmpresaFormModalProps {
@@ -62,7 +67,7 @@ function Field({
 }
 
 const inputClass =
-  "w-full rounded-md border border-secondary/30 px-3 py-2 text-sm focus:border-primary focus:outline-none disabled:bg-secondary/10";
+  "w-full rounded-md border border-secondary/55 px-3 py-2 text-sm focus:border-primary focus:outline-none disabled:bg-secondary/10";
 
 export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFormModalProps) {
   const { showToast } = useToast();
@@ -72,6 +77,7 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
   const [saving, setSaving] = useState(false);
 
   const [nome, setNome] = useState(empresa?.nome ?? "");
+  const [slug, setSlug] = useState(empresa?.slug ?? "");
   const [tipoId, setTipoId] = useState(empresa?.tipo_estabelecimento_id ?? "");
   const [cnpj, setCnpj] = useState(maskCnpj(empresa?.cnpj ?? ""));
   const [nomeResponsavel, setNomeResponsavel] = useState(empresa?.nome_responsavel ?? "");
@@ -79,7 +85,7 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
   const [email, setEmail] = useState(empresa?.email ?? "");
   const [senha, setSenha] = useState("");
   const [logo, setLogo] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(empresa?.logo_url ?? null);
 
   const [semCep, setSemCep] = useState(false);
   const [cep, setCep] = useState(maskCep(empresa?.cep ?? ""));
@@ -141,6 +147,7 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
 
     const formData = new FormData();
     formData.set("nome", nome);
+    formData.set("slug", slug);
     formData.set("tipoEstabelecimentoId", tipoId);
     formData.set("cnpj", cnpj);
     formData.set("nomeResponsavel", nomeResponsavel);
@@ -182,11 +189,14 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
       <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-white shadow-xl">
         <div className="shrink-0 p-6 pb-0">
-          <h2 className="mb-4 text-lg font-semibold">
-            {modoEdicao ? "Editar Empresa" : "Nova Empresa"}
-          </h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">
+              {modoEdicao ? "Editar Empresa" : "Nova Empresa"}
+            </h2>
+            <IconAction icon={X} label="Fechar" onClick={onClose} />
+          </div>
 
-          <div className="mb-6 flex border-b border-secondary/15 text-sm">
+          <div className="mb-6 flex border-b border-secondary/40 text-sm">
             <div
               className={`px-3 pb-2 font-medium ${
                 step === 1 ? "border-b-2 border-primary text-primary" : "text-secondary"
@@ -211,9 +221,24 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
                 <input
                   required
                   value={nome}
-                  onChange={(e) => setNome(e.target.value)}
+                  onChange={(e) => {
+                    setNome(e.target.value);
+                    if (!modoEdicao) setSlug(slugify(e.target.value));
+                  }}
                   className={inputClass}
                 />
+              </Field>
+
+              <Field label="Link do cardápio público" fullWidth>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-secondary">captardelivery.com.br/loja/</span>
+                  <input
+                    required
+                    value={slug}
+                    onChange={(e) => setSlug(slugify(e.target.value))}
+                    className={inputClass}
+                  />
+                </div>
               </Field>
 
               <Field label="Tipo de Estabelecimento">
@@ -392,7 +417,7 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
           )}
         </div>
 
-        <div className="mt-2 flex shrink-0 justify-between border-t border-secondary/15 p-6 pt-4">
+        <div className="mt-2 flex shrink-0 justify-between border-t border-secondary/40 p-6 pt-4">
           {step === 2 ? (
             <Button type="button" variant="secondary" onClick={() => setStep(1)}>
               Voltar

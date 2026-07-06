@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Pencil, CalendarPlus, Ban, PlayCircle, Eye } from "lucide-react";
 import { NumberedTable } from "@/components/ui/numbered-table";
 import { Button } from "@/components/ui/button";
+import { IconAction } from "@/components/ui/icon-action";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { extendTrial, updateEmpresaStatus } from "@/lib/actions/empresas";
 import { EmpresaFormModal, type EmpresaParaEdicao } from "./empresa-form-modal";
+import { EmpresaViewModal } from "./empresa-view-modal";
 
 interface Empresa extends EmpresaParaEdicao {
   status: "trial" | "active" | "suspended" | "cancelled";
@@ -44,6 +47,7 @@ export function EmpresasClient({
   const router = useRouter();
   const { showToast } = useToast();
   const [modal, setModal] = useState<"nova" | Empresa | null>(null);
+  const [visualizando, setVisualizando] = useState<Empresa | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
     empresa: Empresa;
     novoStatus: Empresa["status"];
@@ -86,14 +90,13 @@ export function EmpresasClient({
         <Button onClick={() => setModal("nova")}>Nova Empresa</Button>
       </div>
 
-      <div className="rounded-lg border border-secondary/15 bg-white p-4">
+      <div className="rounded-lg border border-secondary/40 bg-white p-4">
         <NumberedTable<Empresa>
           rows={empresas}
           rowKey={(e) => e.id}
           columns={[
             { header: "Nome", render: (e) => e.nome },
             { header: "Tipo", render: (e) => e.tipo_estabelecimento_nome ?? "-" },
-            { header: "E-mail", render: (e) => e.email },
             {
               header: "Status",
               render: (e) => (
@@ -103,41 +106,33 @@ export function EmpresasClient({
               ),
             },
             {
-              header: "Teste expira em",
-              render: (e) => new Date(e.trial_ends_at).toLocaleDateString("pt-BR"),
-            },
-            {
               header: "Ações",
               render: (e) => (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => setModal(e)}
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    Editar
-                  </button>
+                <div className="flex gap-1">
+                  <IconAction icon={Eye} label="Visualizar" variant="secondary" onClick={() => setVisualizando(e)} />
+                  <IconAction icon={Pencil} label="Editar" variant="primary" onClick={() => setModal(e)} />
                   {e.status === "trial" && (
-                    <button
+                    <IconAction
+                      icon={CalendarPlus}
+                      label="Estender teste"
+                      variant="primary"
                       onClick={() => handleExtendTrial(e)}
-                      className="text-xs font-medium text-primary hover:underline"
-                    >
-                      Estender teste
-                    </button>
+                    />
                   )}
                   {e.status === "suspended" ? (
-                    <button
+                    <IconAction
+                      icon={PlayCircle}
+                      label="Reativar"
+                      variant="success"
                       onClick={() => setConfirmAction({ empresa: e, novoStatus: "active" })}
-                      className="text-xs font-medium text-success hover:underline"
-                    >
-                      Reativar
-                    </button>
+                    />
                   ) : (
-                    <button
+                    <IconAction
+                      icon={Ban}
+                      label="Suspender"
+                      variant="danger"
                       onClick={() => setConfirmAction({ empresa: e, novoStatus: "suspended" })}
-                      className="text-xs font-medium text-danger hover:underline"
-                    >
-                      Suspender
-                    </button>
+                    />
                   )}
                 </div>
               ),
@@ -156,6 +151,10 @@ export function EmpresasClient({
           onClose={() => setModal(null)}
           onSaved={handleSaved}
         />
+      )}
+
+      {visualizando && (
+        <EmpresaViewModal empresa={visualizando} onClose={() => setVisualizando(null)} />
       )}
 
       <ConfirmDialog

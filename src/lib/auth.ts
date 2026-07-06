@@ -25,3 +25,21 @@ export async function getCurrentProfile(): Promise<Profile | null> {
 
   return profile as Profile | null;
 }
+
+export interface Empresa {
+  id: string;
+  nome: string;
+  status: "trial" | "active" | "suspended" | "cancelled";
+}
+
+export async function getCurrentEmpresa(empresaId: string): Promise<Empresa | null> {
+  const supabase = await createClient();
+
+  const { data: empresa } = await supabase
+    .from("empresas")
+    .select("id, nome, status")
+    .eq("id", empresaId)
+    .single();
+
+  return empresa as Empresa | null;
+}

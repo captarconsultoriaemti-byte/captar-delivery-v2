@@ -2,9 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { Pencil, Trash2, Eye } from "lucide-react";
 import { NumberedTable } from "@/components/ui/numbered-table";
 import { Button } from "@/components/ui/button";
+import { IconAction } from "@/components/ui/icon-action";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DetailModal, DetailField } from "@/components/ui/detail-modal";
 import { useToast } from "@/components/ui/toast";
 import {
   createTipoEstabelecimento,
@@ -27,6 +30,7 @@ export function TiposEstabelecimentoClient({ tipos }: { tipos: TipoEstabelecimen
   const [nome, setNome] = useState("");
   const [saving, setSaving] = useState(false);
   const [excluindo, setExcluindo] = useState<TipoEstabelecimento | null>(null);
+  const [visualizando, setVisualizando] = useState<TipoEstabelecimento | null>(null);
 
   function abrirNovo() {
     setEditando(null);
@@ -99,7 +103,7 @@ export function TiposEstabelecimentoClient({ tipos }: { tipos: TipoEstabelecimen
         <Button onClick={abrirNovo}>Novo Tipo</Button>
       </div>
 
-      <div className="rounded-lg border border-secondary/15 bg-white p-4">
+      <div className="rounded-lg border border-secondary/40 bg-white p-4">
         <NumberedTable<TipoEstabelecimento>
           rows={tipos}
           rowKey={(t) => t.id}
@@ -113,19 +117,15 @@ export function TiposEstabelecimentoClient({ tipos }: { tipos: TipoEstabelecimen
             {
               header: "Ações",
               render: (t) => (
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => abrirEdicao(t)}
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    Editar
-                  </button>
-                  <button
+                <div className="flex gap-1">
+                  <IconAction icon={Eye} label="Visualizar" variant="secondary" onClick={() => setVisualizando(t)} />
+                  <IconAction icon={Pencil} label="Editar" variant="primary" onClick={() => abrirEdicao(t)} />
+                  <IconAction
+                    icon={Trash2}
+                    label="Excluir"
+                    variant="danger"
                     onClick={() => pedirExclusao(t)}
-                    className="text-xs font-medium text-danger hover:underline"
-                  >
-                    Excluir
-                  </button>
+                  />
                 </div>
               ),
             },
@@ -150,7 +150,7 @@ export function TiposEstabelecimentoClient({ tipos }: { tipos: TipoEstabelecimen
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder="Ex: Marmitaria"
-              className="mb-6 w-full rounded-md border border-secondary/30 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+              className="mb-6 w-full rounded-md border border-secondary/55 px-3 py-2 text-sm focus:border-primary focus:outline-none"
             />
 
             <div className="flex justify-end gap-2">
@@ -163,6 +163,18 @@ export function TiposEstabelecimentoClient({ tipos }: { tipos: TipoEstabelecimen
             </div>
           </form>
         </div>
+      )}
+
+      {visualizando && (
+        <DetailModal title={visualizando.nome} onClose={() => setVisualizando(null)}>
+          <DetailField
+            label="Em uso"
+            value={
+              visualizando.emUsoPor > 0 ? `${visualizando.emUsoPor} empresa(s)` : "Nenhuma empresa"
+            }
+            fullWidth
+          />
+        </DetailModal>
       )}
 
       <ConfirmDialog

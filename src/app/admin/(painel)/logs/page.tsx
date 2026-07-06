@@ -23,7 +23,7 @@ export default async function LogsPage() {
   return (
     <div>
       <h1 className="mb-6 text-xl font-bold">Log de acessos</h1>
-      <div className="rounded-lg border border-secondary/15 bg-white p-4">
+      <div className="rounded-lg border border-secondary/40 bg-white p-4">
         <NumberedTable
           rows={usuarios}
           rowKey={(u) => u.id}

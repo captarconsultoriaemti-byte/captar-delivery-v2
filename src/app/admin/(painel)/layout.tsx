@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth";
-import { LogoutButton } from "./logout-button";
+import { LogoutButton } from "@/components/ui/logout-button";
 
 export default async function AdminPainelLayout({
   children,
@@ -16,7 +16,7 @@ export default async function AdminPainelLayout({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="w-56 shrink-0 border-r border-secondary/15 bg-background-soft p-4">
+      <aside className="w-56 shrink-0 border-r border-secondary/40 bg-background-soft p-4">
         <p className="mb-6 text-lg font-bold text-primary">CAPTAR Delivery</p>
         <nav className="flex flex-col gap-1 text-sm">
           <Link href="/admin/empresas" className="rounded-md px-3 py-2 hover:bg-secondary/10">
@@ -36,7 +36,7 @@ export default async function AdminPainelLayout({
           </Link>
         </nav>
         <div className="mt-8">
-          <LogoutButton />
+          <LogoutButton redirectTo="/admin/login" />
         </div>
       </aside>
       <main className="flex-1 p-6">{children}</main>

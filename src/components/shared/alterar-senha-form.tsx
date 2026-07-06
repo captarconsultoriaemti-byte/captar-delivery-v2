@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { updateOwnPassword } from "@/lib/actions/perfil";
 
-export function PerfilClient() {
+export function AlterarSenhaForm() {
   const { showToast } = useToast();
   const [senha, setSenha] = useState("");
   const [saving, setSaving] = useState(false);
