@@ -41,6 +41,7 @@ export interface Pedido {
   cliente_nome: string | null;
   cliente_telefone: string | null;
   total: number;
+  taxa_entrega: number;
   etapa_link: EtapaLink | null;
   created_at: string;
   tipo_entrega: "entrega" | "retirada";
@@ -70,10 +71,10 @@ const PROXIMA_ETAPA: Record<string, EtapaLink> = {
 };
 
 const COR_COLUNA: Record<string, string> = {
-  novo: "border-blue-200 bg-blue-50",
-  em_preparo: "border-amber-200 bg-amber-50",
-  pronto: "border-green-200 bg-green-50",
-  entregue: "border-secondary/45 bg-white",
+  novo: "border-blue-300 border-l-4 border-l-blue-500 bg-blue-100",
+  em_preparo: "border-amber-300 border-l-4 border-l-amber-500 bg-amber-100",
+  pronto: "border-green-300 border-l-4 border-l-green-500 bg-green-100",
+  entregue: "border-secondary/40 border-l-4 border-l-secondary/70 bg-secondary/10",
 };
 
 function formatarMoeda(valor: number) {
@@ -88,8 +89,15 @@ function nomeItem(item: PedidoItem) {
   return item.produtos?.nome ?? item.combos?.nome ?? "?";
 }
 
+function previsaoEnvio(createdAt: string, tempoEstimadoPreparo: number | null) {
+  if (!tempoEstimadoPreparo) return null;
+  const previsao = new Date(new Date(createdAt).getTime() + tempoEstimadoPreparo * 60000);
+  return { previsao, atrasado: new Date() > previsao };
+}
+
 function CardPedido({
   pedido,
+  tempoEstimadoPreparo,
   onImprimir,
   onVer,
   onAvancar,
@@ -97,6 +105,7 @@ function CardPedido({
   onSolicitacao,
 }: {
   pedido: Pedido;
+  tempoEstimadoPreparo: number | null;
   onImprimir: (p: Pedido) => void;
   onVer: (p: Pedido) => void;
   onAvancar: (p: Pedido) => void;
@@ -106,11 +115,12 @@ function CardPedido({
   const etapa = pedido.etapa_link ?? "novo";
   const proxima = PROXIMA_ETAPA[etapa];
   const emAlerta = pedido.cancelamento_solicitado;
+  const previsao = etapa === "em_preparo" ? previsaoEnvio(pedido.created_at, tempoEstimadoPreparo) : null;
 
   return (
     <div
       className={`mb-2 rounded-md border p-3 text-sm shadow-sm ${
-        emAlerta ? "border-danger bg-danger/10" : COR_COLUNA[etapa]
+        emAlerta ? "border-danger border-l-4 border-l-danger bg-danger/10" : COR_COLUNA[etapa]
       }`}
     >
       {emAlerta && (
@@ -154,20 +164,49 @@ function CardPedido({
           {pedido.bairro} {pedido.cidade && `— ${pedido.cidade}`}
         </p>
       )}
+      {previsao && (
+        <p
+          className={`mb-2 flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold ${
+            previsao.atrasado ? "bg-danger/15 text-danger" : "bg-amber-200 text-amber-900"
+          }`}
+        >
+          {previsao.atrasado && (
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-danger opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-danger" />
+            </span>
+          )}
+          {previsao.atrasado
+            ? `Em atraso — previsto para ${formatarHora(previsao.previsao.toISOString())}`
+            : `Previsão de envio: ${formatarHora(previsao.previsao.toISOString())}`}
+        </p>
+      )}
 
       <div className="mt-2 flex items-center gap-2">
-        {proxima && (
-          <Button className="flex-1 !py-1.5 text-xs" onClick={() => onAvancar(pedido)}>
-            Próximo: {COLUNAS.find((c) => c.id === proxima)?.label}
-          </Button>
-        )}
-        {etapa !== "entregue" && (
-          <IconAction
-            icon={XCircle}
-            label="Cancelar pedido"
+        {emAlerta ? (
+          <Button
             variant="danger"
-            onClick={() => onCancelar(pedido)}
-          />
+            className="flex-1 !py-1.5 text-xs"
+            onClick={() => onSolicitacao(pedido)}
+          >
+            Ver solicitação
+          </Button>
+        ) : (
+          <>
+            {proxima && (
+              <Button className="flex-1 !py-1.5 text-xs" onClick={() => onAvancar(pedido)}>
+                Próximo: {COLUNAS.find((c) => c.id === proxima)?.label}
+              </Button>
+            )}
+            {etapa !== "entregue" && (
+              <IconAction
+                icon={XCircle}
+                label="Cancelar pedido"
+                variant="danger"
+                onClick={() => onCancelar(pedido)}
+              />
+            )}
+          </>
         )}
       </div>
     </div>
@@ -182,6 +221,7 @@ function Coluna({
   id: EtapaLink;
   label: string;
   pedidos: Pedido[];
+  tempoEstimadoPreparo: number | null;
   onImprimir: (p: Pedido) => void;
   onVer: (p: Pedido) => void;
   onAvancar: (p: Pedido) => void;
@@ -206,12 +246,14 @@ export function PedidosOnlineClient({
   empresaInfo,
   impressaoAutomatica,
   impressoraAutomatica,
+  tempoEstimadoPreparo,
 }: {
   pedidos: Pedido[];
   empresaId: string;
   empresaInfo: { nome: string; mensagem_agradecimento: string | null };
   impressaoAutomatica: boolean;
   impressoraAutomatica: string | null;
+  tempoEstimadoPreparo: number | null;
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -230,6 +272,16 @@ export function PedidosOnlineClient({
     setPrevPedidosIniciais(pedidosIniciais);
     setPedidos(pedidosIniciais);
   }
+
+  // atualiza a lista periodicamente pra pedidos novos aparecerem sem precisar
+  // dar F5 manual (alem do realtime de impressao automatica, que so dispara
+  // se a empresa tiver ativado a impressora)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      router.refresh();
+    }, 10_000);
+    return () => clearInterval(timer);
+  }, [router]);
 
   // imprime automaticamente pedidos novos que chegam pelo link, em tempo real,
   // enquanto a tela de Pedidos Online estiver aberta - so funciona se a empresa
@@ -366,6 +418,7 @@ export function PedidosOnlineClient({
             id={coluna.id}
             label={coluna.label}
             pedidos={pedidos.filter((p) => (p.etapa_link ?? "novo") === coluna.id)}
+            tempoEstimadoPreparo={tempoEstimadoPreparo}
             onImprimir={setImprimindo}
             onVer={setVendo}
             onAvancar={setAvancando}
@@ -420,6 +473,23 @@ export function PedidosOnlineClient({
           <DetailField label="Horário" value={formatarHora(vendo.created_at)} />
           <DetailField label="Tipo" value={vendo.tipo_entrega === "retirada" ? "Retirada" : "Entrega"} />
           <DetailField label="Forma de pagamento" value={vendo.forma_pagamento} />
+          {vendo.etapa_link === "em_preparo" &&
+            (() => {
+              const previsao = previsaoEnvio(vendo.created_at, tempoEstimadoPreparo);
+              if (!previsao) return null;
+              return (
+                <DetailField
+                  label="Previsão de envio"
+                  value={
+                    <span className={previsao.atrasado ? "font-semibold text-danger" : "font-semibold text-amber-700"}>
+                      {previsao.atrasado
+                        ? `Em atraso — previsto para ${formatarHora(previsao.previsao.toISOString())}`
+                        : formatarHora(previsao.previsao.toISOString())}
+                    </span>
+                  }
+                />
+              );
+            })()}
           {vendo.tipo_entrega === "entrega" && (
             <DetailField
               label="Endereço"
@@ -458,6 +528,9 @@ export function PedidosOnlineClient({
             }
           />
           {vendo.observacoes && <DetailField label="Observações do pedido" fullWidth value={vendo.observacoes} />}
+          {vendo.tipo_entrega === "entrega" && (
+            <DetailField label="Taxa de entrega" value={formatarMoeda(vendo.taxa_entrega)} />
+          )}
           <DetailField label="Total" value={formatarMoeda(vendo.total)} />
         </DetailModal>
       )}

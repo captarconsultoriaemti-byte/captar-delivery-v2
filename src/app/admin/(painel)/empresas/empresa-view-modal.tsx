@@ -46,7 +46,9 @@ export function EmpresaViewModal({
   onClose: () => void;
 }) {
   const { showToast } = useToast();
-  const linkCardapio = empresa.slug ? `https://captardelivery.com.br/loja/${empresa.slug}` : null;
+  const linkCardapio = empresa.slug
+    ? `${process.env.NEXT_PUBLIC_SITE_URL}/loja/${empresa.slug}`
+    : null;
 
   function copiarLink() {
     if (!linkCardapio) return;

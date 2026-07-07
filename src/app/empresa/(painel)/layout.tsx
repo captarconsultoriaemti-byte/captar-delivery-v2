@@ -11,6 +11,8 @@ import {
   DollarSign,
   UserCircle,
   Kanban,
+  History,
+  MapPin,
 } from "lucide-react";
 import { getCurrentEmpresa, getCurrentProfile } from "@/lib/auth";
 import { getOnboardingStatus } from "@/lib/onboarding";
@@ -65,6 +67,13 @@ export default async function EmpresaPainelLayout({
             bloqueado={!status.temProduto}
             motivo="Cadastre pelo menos 1 produto no cardápio primeiro"
           />
+          <NavLink
+            href="/empresa/pedidos-online/historico"
+            label="Histórico"
+            icon={History}
+            bloqueado={!status.temProduto}
+            motivo="Cadastre pelo menos 1 produto no cardápio primeiro"
+          />
           <NavLink href="/empresa/clientes" label="Clientes" icon={Users} bloqueado={false} />
 
           <hr className="my-2 border-t-2 border-secondary/65" />
@@ -98,6 +107,12 @@ export default async function EmpresaPainelLayout({
             href="/empresa/configuracoes"
             label="Configurações"
             icon={Settings}
+            bloqueado={false}
+          />
+          <NavLink
+            href="/empresa/bairros-entrega"
+            label="Bairros de Entrega"
+            icon={MapPin}
             bloqueado={false}
           />
           <NavLink

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconAction } from "@/components/ui/icon-action";
@@ -8,13 +8,7 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Combobox } from "@/components/ui/combobox";
 import { useToast } from "@/components/ui/toast";
 import { maskCnpj, maskWhatsapp, maskCep } from "@/lib/utils/masks";
-import {
-  buscarCidadesPorEstado,
-  buscarEnderecoPorCep,
-  buscarEstados,
-  type Cidade,
-  type Estado,
-} from "@/lib/utils/endereco";
+import { buscarEnderecoPorCep } from "@/lib/utils/endereco";
 import { createEmpresa, updateEmpresa } from "@/lib/actions/empresas";
 import { slugify } from "@/lib/utils/slug";
 
@@ -87,7 +81,6 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
   const [logo, setLogo] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(empresa?.logo_url ?? null);
 
-  const [semCep, setSemCep] = useState(false);
   const [cep, setCep] = useState(maskCep(empresa?.cep ?? ""));
   const [logradouro, setLogradouro] = useState(empresa?.logradouro ?? "");
   const [numero, setNumero] = useState(empresa?.numero ?? "");
@@ -96,23 +89,8 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
   const [cidade, setCidade] = useState(empresa?.cidade ?? "");
   const [estado, setEstado] = useState(empresa?.estado ?? "");
   const [buscandoCep, setBuscandoCep] = useState(false);
-  const [estados, setEstados] = useState<Estado[]>([]);
-  const [cidades, setCidades] = useState<Cidade[]>([]);
-
-  useEffect(() => {
-    if (semCep) {
-      buscarEstados().then(setEstados);
-    }
-  }, [semCep]);
-
-  useEffect(() => {
-    if (semCep && estado) {
-      buscarCidadesPorEstado(estado).then(setCidades);
-    }
-  }, [semCep, estado]);
 
   async function handleCepBlur() {
-    if (semCep) return;
     const digits = cep.replace(/\D/g, "");
     if (digits.length !== 8) return;
 
@@ -182,8 +160,6 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
   }
 
   const tipoOptions = tipos.map((t) => ({ value: t.id, label: t.nome }));
-  const estadoOptions = estados.map((e) => ({ value: e.sigla, label: `${e.nome} (${e.sigla})` }));
-  const cidadeOptions = cidades.map((c) => ({ value: c.nome, label: c.nome }));
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4">
@@ -231,7 +207,9 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
 
               <Field label="Link do cardápio público" fullWidth>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-secondary">captardelivery.com.br/loja/</span>
+                  <span className="text-sm text-secondary">
+                    {(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/^https?:\/\//, "")}/loja/
+                  </span>
                   <input
                     required
                     value={slug}
@@ -325,19 +303,9 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
 
           {step === 2 && (
             <form id="form-empresa-step2" onSubmit={handleSalvar} className="grid grid-cols-2 gap-4">
-              <label className="col-span-2 flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={semCep}
-                  onChange={(e) => setSemCep(e.target.checked)}
-                />
-                Não sei o CEP
-              </label>
-
               <Field label="CEP">
                 <input
                   required
-                  disabled={semCep}
                   value={cep}
                   onChange={(e) => setCep(maskCep(e.target.value))}
                   onBlur={handleCepBlur}
@@ -350,9 +318,8 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
               <Field label="Logradouro">
                 <input
                   required
-                  disabled={!semCep}
+                  disabled
                   value={logradouro}
-                  onChange={(e) => setLogradouro(e.target.value)}
                   className={inputClass}
                 />
               </Field>
@@ -375,43 +342,15 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
               </Field>
 
               <Field label="Bairro">
-                <input
-                  required
-                  disabled={!semCep}
-                  value={bairro}
-                  onChange={(e) => setBairro(e.target.value)}
-                  className={inputClass}
-                />
+                <input required disabled value={bairro} className={inputClass} />
               </Field>
 
               <Field label="Estado">
-                {semCep ? (
-                  <Combobox
-                    options={estadoOptions}
-                    value={estado}
-                    onChange={(value) => {
-                      setEstado(value);
-                      setCidade("");
-                    }}
-                    placeholder="Selecione o estado"
-                  />
-                ) : (
-                  <input required disabled value={estado} className={inputClass} />
-                )}
+                <input required disabled value={estado} className={inputClass} />
               </Field>
 
               <Field label="Cidade">
-                {semCep ? (
-                  <Combobox
-                    options={cidadeOptions}
-                    value={cidade}
-                    onChange={setCidade}
-                    placeholder={estado ? "Selecione a cidade" : "Selecione o estado antes"}
-                    disabled={!estado}
-                  />
-                ) : (
-                  <input required disabled value={cidade} className={inputClass} />
-                )}
+                <input required disabled value={cidade} className={inputClass} />
               </Field>
             </form>
           )}

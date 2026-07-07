@@ -19,30 +19,32 @@ export default async function LojaPage({ params }: { params: Promise<{ slug: str
     notFound();
   }
 
-  const [{ data: categorias }, { data: produtos }, { data: combos }] = await Promise.all([
-    admin
-      .from("categorias")
-      .select("id, nome")
-      .eq("empresa_id", empresa.id)
-      .eq("ativo", true)
-      .order("ordem")
-      .order("nome"),
-    admin
-      .from("produtos")
-      .select(
-        "id, nome, descricao, preco, foto_url, destaque, tem_desconto, desconto_tipo, desconto_valor, produto_grupos_opcionais(grupos_opcionais(id, nome, ordem, obrigatorio, minimo_selecao, maximo_selecao, opcionais(id, nome, preco_adicional))), produto_itens_opcionais(id, nome, ordem), produto_categorias(categoria_id)",
-      )
-      .eq("empresa_id", empresa.id)
-      .eq("ativo", true)
-      .order("ordem")
-      .order("nome"),
-    admin
-      .from("combos")
-      .select("id, nome, descricao, preco, foto_url, tem_desconto, desconto_tipo, desconto_valor")
-      .eq("empresa_id", empresa.id)
-      .eq("ativo", true)
-      .order("nome"),
-  ]);
+  const [{ data: categorias }, { data: produtos }, { data: combos }, { data: bairrosEntrega }] =
+    await Promise.all([
+      admin
+        .from("categorias")
+        .select("id, nome")
+        .eq("empresa_id", empresa.id)
+        .eq("ativo", true)
+        .order("ordem")
+        .order("nome"),
+      admin
+        .from("produtos")
+        .select(
+          "id, nome, descricao, preco, foto_url, destaque, tem_desconto, desconto_tipo, desconto_valor, produto_grupos_opcionais(grupos_opcionais(id, nome, ordem, obrigatorio, minimo_selecao, maximo_selecao, opcionais(id, nome, preco_adicional))), produto_itens_opcionais(id, nome, ordem), produto_categorias(categoria_id)",
+        )
+        .eq("empresa_id", empresa.id)
+        .eq("ativo", true)
+        .order("ordem")
+        .order("nome"),
+      admin
+        .from("combos")
+        .select("id, nome, descricao, preco, foto_url, tem_desconto, desconto_tipo, desconto_valor")
+        .eq("empresa_id", empresa.id)
+        .eq("ativo", true)
+        .order("nome"),
+      admin.from("bairros_entrega").select("bairro_normalizado, valor").eq("empresa_id", empresa.id),
+    ]);
 
   const produtosComGrupos = (produtos ?? []).map((produto) => {
     const grupos = (produto.produto_grupos_opcionais ?? [])
@@ -96,6 +98,7 @@ export default async function LojaPage({ params }: { params: Promise<{ slug: str
       categorias={categorias ?? []}
       produtos={produtosComGrupos as never}
       combos={combos ?? []}
+      bairrosEntrega={bairrosEntrega ?? []}
     />
   );
 }

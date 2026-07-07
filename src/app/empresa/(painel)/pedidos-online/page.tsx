@@ -13,18 +13,22 @@ export default async function PedidosOnlinePage() {
   const profile = await getCurrentProfile();
   const supabase = await createClient();
 
+  const inicioDoDia = new Date();
+  inicioDoDia.setHours(0, 0, 0, 0);
+
   const [{ data: pedidos }, { data: empresa }] = await Promise.all([
     supabase
       .from("pedidos")
       .select(
-        "id, cliente_nome, cliente_telefone, total, etapa_link, created_at, tipo_entrega, bairro, cidade, logradouro, numero, complemento, forma_pagamento, observacoes, cancelamento_solicitado, motivo_solicitacao_cancelamento, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(nome), combos(nome))",
+        "id, cliente_nome, cliente_telefone, total, taxa_entrega, etapa_link, created_at, tipo_entrega, bairro, cidade, logradouro, numero, complemento, forma_pagamento, observacoes, cancelamento_solicitado, motivo_solicitacao_cancelamento, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(nome), combos(nome))",
       )
       .eq("origem", "link")
-      .not("etapa_link", "in", "(entregue,cancelado)")
+      .neq("etapa_link", "cancelado")
+      .or(`etapa_link.neq.entregue,closed_at.gte.${inicioDoDia.toISOString()}`)
       .order("created_at", { ascending: true }),
     supabase
       .from("empresas")
-      .select("nome, mensagem_agradecimento, impressao_automatica, impressora_automatica")
+      .select("nome, mensagem_agradecimento, impressao_automatica, impressora_automatica, tempo_estimado_preparo")
       .eq("id", profile!.empresa_id)
       .single(),
   ]);
@@ -50,6 +54,7 @@ export default async function PedidosOnlinePage() {
         }}
         impressaoAutomatica={empresa?.impressao_automatica ?? false}
         impressoraAutomatica={empresa?.impressora_automatica ?? null}
+        tempoEstimadoPreparo={empresa?.tempo_estimado_preparo ?? null}
       />
     </div>
   );

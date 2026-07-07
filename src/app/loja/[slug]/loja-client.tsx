@@ -13,6 +13,7 @@ import {
   buscarCidadesPorEstado,
   buscarEnderecoPorCep,
   buscarEstados,
+  normalizarBairro,
   type Cidade,
   type Estado,
 } from "@/lib/utils/endereco";
@@ -98,6 +99,7 @@ export function LojaClient({
   categorias,
   produtos,
   combos,
+  bairrosEntrega,
 }: {
   slug: string;
   empresa: {
@@ -120,6 +122,7 @@ export function LojaClient({
   categorias: Categoria[];
   produtos: Produto[];
   combos: Combo[];
+  bairrosEntrega: { bairro_normalizado: string; valor: number }[];
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -193,7 +196,7 @@ export function LojaClient({
   const [nome, setNome] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [observacao, setObservacao] = useState("");
-  const [formaPagamento, setFormaPagamento] = useState(formasPagamento[0]);
+  const [formaPagamento, setFormaPagamento] = useState("");
   const [tipoEntrega, setTipoEntrega] = useState<"entrega" | "retirada">("entrega");
 
   const [semCep, setSemCep] = useState(false);
@@ -208,10 +211,21 @@ export function LojaClient({
   const [estados, setEstados] = useState<Estado[]>([]);
   const [cidades, setCidades] = useState<Cidade[]>([]);
 
-  const total = useMemo(
+  const subtotal = useMemo(
     () => carrinho.reduce((soma, item) => soma + item.preco_unitario * item.quantidade, 0),
     [carrinho],
   );
+
+  const taxaEntrega = useMemo(() => {
+    if (tipoEntrega !== "entrega") return 0;
+    if (!bairro.trim()) return empresa.taxaEntregaPadrao;
+    const encontrado = bairrosEntrega.find(
+      (b) => b.bairro_normalizado === normalizarBairro(bairro),
+    );
+    return encontrado ? encontrado.valor : empresa.taxaEntregaPadrao;
+  }, [tipoEntrega, bairro, bairrosEntrega, empresa.taxaEntregaPadrao]);
+
+  const total = subtotal + taxaEntrega;
 
   async function handleCepBlur() {
     if (semCep) return;
@@ -409,8 +423,8 @@ export function LojaClient({
       showToast("error", "Informe seu nome.");
       return;
     }
-    if (!whatsapp.trim()) {
-      showToast("error", "Informe seu WhatsApp.");
+    if (unmask(whatsapp).length < 10) {
+      showToast("error", "Informe um WhatsApp válido, com DDD.");
       return;
     }
     if (
@@ -418,6 +432,10 @@ export function LojaClient({
       (!logradouro.trim() || !numero.trim() || !bairro.trim() || !cidade.trim() || !estado.trim())
     ) {
       showToast("error", "Preencha o endereço de entrega completo.");
+      return;
+    }
+    if (!formaPagamento) {
+      showToast("error", "Selecione a forma de pagamento.");
       return;
     }
 
@@ -891,6 +909,7 @@ export function LojaClient({
                         value={whatsapp}
                         onChange={(e) => setWhatsapp(maskWhatsapp(e.target.value))}
                         placeholder="(00) 00000-0000"
+                        required
                         className="w-full rounded-md border border-secondary/55 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                       />
                     </div>
@@ -1048,8 +1067,12 @@ export function LojaClient({
                     <select
                       value={formaPagamento}
                       onChange={(e) => setFormaPagamento(e.target.value)}
+                      required
                       className="w-full rounded-md border border-secondary/55 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                     >
+                      <option value="" disabled>
+                        Selecione...
+                      </option>
                       {formasPagamento.map((forma) => (
                         <option key={forma} value={forma}>
                           {forma}
@@ -1062,7 +1085,17 @@ export function LojaClient({
             </div>
 
             <div className="border-t border-secondary/40 p-4">
-              <div className="mb-3 flex justify-between text-sm font-semibold">
+              <div className="flex justify-between text-sm text-secondary">
+                <span>Subtotal</span>
+                <span>{formatarMoeda(subtotal)}</span>
+              </div>
+              {tipoEntrega === "entrega" && (
+                <div className="flex justify-between text-sm text-secondary">
+                  <span>Taxa de entrega</span>
+                  <span>{formatarMoeda(taxaEntrega)}</span>
+                </div>
+              )}
+              <div className="mb-3 flex justify-between border-t border-secondary/30 pt-1.5 text-sm font-semibold">
                 <span>Total</span>
                 <span>{formatarMoeda(total)}</span>
               </div>

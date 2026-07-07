@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 
-const INTERVALO_SEGUNDOS = 20;
+const INTERVALO_SEGUNDOS = 10;
 
 // atualiza a pagina periodicamente (o status do pedido muda no painel da
 // empresa e essa tela e so leitura, sem realtime) e da a opcao de atualizar

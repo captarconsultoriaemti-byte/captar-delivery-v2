@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Home } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
-import { solicitarCancelamentoPedido, MOTIVOS_CANCELAMENTO } from "@/lib/actions/loja";
+import { solicitarCancelamentoPedido } from "@/lib/actions/loja";
+import { MOTIVOS_CANCELAMENTO } from "@/lib/utils/cancelamento";
 
 export function CancelamentoControls({
   slug,
@@ -27,9 +30,20 @@ export function CancelamentoControls({
 
   if (cancelamentoSolicitado) {
     return (
-      <p className="mt-4 text-center text-xs font-medium text-secondary">
-        Cancelamento solicitado, aguardando confirmação da loja.
-      </p>
+      <div>
+        <div className="mt-3 rounded-md bg-danger/10 p-3 text-center text-sm font-semibold text-danger">
+          Cancelamento solicitado, aguardando confirmação da loja.
+        </div>
+        <div className="mt-3 text-center">
+          <Link
+            href={`/loja/${slug}`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            <Home size={16} />
+            Voltar para o início
+          </Link>
+        </div>
+      </div>
     );
   }
 

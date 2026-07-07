@@ -1,3 +1,14 @@
+// normaliza pra poder comparar bairro digitado com bairro cadastrado sem
+// diferenca de acento, caixa ou espacamento (ex: "Centro" == "centro " == "CENTRO")
+export function normalizarBairro(bairro: string): string {
+  return bairro
+    .normalize("NFD")
+    .replace(new RegExp("[" + String.fromCharCode(0x0300) + "-" + String.fromCharCode(0x036f) + "]", "g"), "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+}
+
 export interface ViaCepResponse {
   cep: string;
   logradouro: string;

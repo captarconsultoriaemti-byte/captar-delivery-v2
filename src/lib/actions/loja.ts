@@ -5,13 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActionResult } from "@/lib/actions/shared";
 import { calcularPrecoFinal } from "@/lib/utils/desconto";
 import { calcularStatusFuncionamento, normalizarHorarios } from "@/lib/utils/horario";
-
-export const MOTIVOS_CANCELAMENTO = [
-  "Pedido em duplicidade",
-  "Demorou muito",
-  "Mudei de ideia",
-  "Outro",
-] as const;
+import { normalizarBairro } from "@/lib/utils/endereco";
 
 export interface ItemCarrinhoLoja {
   produto_id: string | null;
@@ -52,7 +46,7 @@ interface VinculoOpcionais {
 async function buscarEmpresaAtivaPorSlug(admin: ReturnType<typeof createAdminClient>, slug: string) {
   const { data: empresa } = await admin
     .from("empresas")
-    .select("id, status, pausa_manual, horario_funcionamento")
+    .select("id, status, pausa_manual, horario_funcionamento, taxa_entrega_padrao")
     .eq("slug", slug)
     .single();
 
@@ -65,6 +59,28 @@ async function buscarEmpresaAtivaPorSlug(admin: ReturnType<typeof createAdminCli
   if (!aberto) return null;
 
   return empresa;
+}
+
+// nunca confia no valor de taxa de entrega que vem do cliente: recalcula
+// sempre a partir do bairro cadastrado, com fallback pra taxa padrao da empresa
+async function calcularTaxaEntrega(
+  admin: ReturnType<typeof createAdminClient>,
+  empresaId: string,
+  tipoEntrega: "entrega" | "retirada",
+  bairro: string,
+  taxaPadrao: number,
+): Promise<number> {
+  if (tipoEntrega !== "entrega") return 0;
+  if (!bairro.trim()) return taxaPadrao;
+
+  const { data: bairroEntrega } = await admin
+    .from("bairros_entrega")
+    .select("valor")
+    .eq("empresa_id", empresaId)
+    .eq("bairro_normalizado", normalizarBairro(bairro))
+    .maybeSingle();
+
+  return bairroEntrega?.valor ?? taxaPadrao;
 }
 
 // mesma logica de pedidos.ts: preco sempre recalculado no servidor a partir do
@@ -165,7 +181,16 @@ export async function criarPedidoLink(
   if ("error" in revalidacao) return revalidacao;
   const itens = revalidacao.itens;
 
-  const total = itens.reduce((soma, item) => soma + item.preco_unitario * item.quantidade, 0);
+  const taxaEntrega = await calcularTaxaEntrega(
+    admin,
+    empresa.id,
+    input.tipoEntrega,
+    input.endereco.bairro,
+    empresa.taxa_entrega_padrao,
+  );
+
+  const total =
+    itens.reduce((soma, item) => soma + item.preco_unitario * item.quantidade, 0) + taxaEntrega;
 
   const whatsappDigits = input.clienteWhatsapp.replace(/\D/g, "");
 
@@ -218,6 +243,7 @@ export async function criarPedidoLink(
       cliente_telefone: input.clienteWhatsapp,
       observacoes: input.observacao || null,
       total,
+      taxa_entrega: taxaEntrega,
       forma_pagamento: input.formaPagamento,
       tipo_entrega: input.tipoEntrega,
       ...(input.tipoEntrega === "entrega"

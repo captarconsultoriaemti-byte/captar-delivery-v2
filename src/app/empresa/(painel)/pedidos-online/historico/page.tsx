@@ -27,7 +27,7 @@ export default async function HistoricoPedidosOnlinePage({
   const { data: pedidos } = await supabase
     .from("pedidos")
     .select(
-      "id, cliente_nome, cliente_telefone, total, etapa_link, created_at, closed_at, tipo_entrega, bairro, cidade, logradouro, numero, complemento, forma_pagamento, observacoes, motivo_cancelamento, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(nome), combos(nome))",
+      "id, cliente_nome, cliente_telefone, total, taxa_entrega, etapa_link, created_at, closed_at, tipo_entrega, bairro, cidade, logradouro, numero, complemento, forma_pagamento, observacoes, motivo_cancelamento, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(nome), combos(nome))",
     )
     .eq("origem", "link")
     .eq("empresa_id", profile!.empresa_id)

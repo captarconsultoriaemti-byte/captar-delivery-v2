@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { Clock, Home } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatarOpcionaisComQuantidade } from "@/lib/utils/opcionais";
 import { RefreshControls } from "./refresh-controls";
@@ -17,6 +19,30 @@ function formatarMoeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function formatarHora(data: Date) {
+  return data.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+// etapa "em_preparo" tem exibicao propria (com relogio), entao nao passa por
+// aqui - ver bloco especial no render. So mostra a frase da etapa atual.
+function fraseEtapaAtual(
+  etapaAtual: string,
+  tipoEntrega: "entrega" | "retirada",
+  tempoMedioEntrega: string | null,
+): string {
+  switch (etapaAtual) {
+    case "novo":
+      return "Aguardando confirmação da loja";
+    case "pronto":
+      if (tipoEntrega === "retirada") return "Pode retirar quando quiser!";
+      return tempoMedioEntrega ? `Chegada estimada: ${tempoMedioEntrega}` : "Saiu para entrega";
+    case "entregue":
+      return "Pedido entregue!";
+    default:
+      return "";
+  }
+}
+
 export default async function AcompanhamentoPedidoPage({
   params,
 }: {
@@ -25,13 +51,17 @@ export default async function AcompanhamentoPedidoPage({
   const { slug, id } = await params;
   const admin = createAdminClient();
 
-  const { data: empresa } = await admin.from("empresas").select("id, nome").eq("slug", slug).single();
+  const { data: empresa } = await admin
+    .from("empresas")
+    .select("id, nome, tempo_estimado_preparo, tempo_medio_entrega")
+    .eq("slug", slug)
+    .single();
   if (!empresa) notFound();
 
   const { data: pedido } = await admin
     .from("pedidos")
     .select(
-      "id, total, etapa_link, cliente_nome, tipo_entrega, cidade, bairro, logradouro, numero, cancelamento_solicitado, motivo_cancelamento, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, produtos(nome), combos(nome))",
+      "id, total, taxa_entrega, etapa_link, created_at, cliente_nome, cliente_telefone, tipo_entrega, cidade, bairro, logradouro, numero, complemento, forma_pagamento, cancelamento_solicitado, motivo_cancelamento, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, produtos(nome), combos(nome))",
     )
     .eq("id", id)
     .eq("empresa_id", empresa.id)
@@ -41,6 +71,17 @@ export default async function AcompanhamentoPedidoPage({
 
   const cancelado = pedido.etapa_link === "cancelado";
   const etapaAtualIndex = cancelado ? -1 : ETAPAS_ORDEM.indexOf(pedido.etapa_link ?? "novo");
+  // componente de servidor: roda de novo a cada request, entao new Date() aqui
+  // reflete a hora real da consulta, sem risco de "congelar" num re-render de cliente
+  const agora = new Date();
+  const horaCriacao = new Date(pedido.created_at);
+  const previsaoEnvio = empresa.tempo_estimado_preparo
+    ? new Date(horaCriacao.getTime() + empresa.tempo_estimado_preparo * 60000)
+    : null;
+  const emPreparoAtrasado =
+    etapaAtualIndex === ETAPAS_ORDEM.indexOf("em_preparo") &&
+    previsaoEnvio !== null &&
+    agora > previsaoEnvio;
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
@@ -56,6 +97,15 @@ export default async function AcompanhamentoPedidoPage({
           {pedido.motivo_cancelamento && (
             <p className="mt-1 text-sm text-danger">Motivo: {pedido.motivo_cancelamento}</p>
           )}
+          <div className="mt-3 text-center">
+            <Link
+              href={`/loja/${slug}`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              <Home size={16} />
+              Voltar para o início
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="mb-6 rounded-lg border border-secondary/40 bg-white p-4">
@@ -73,6 +123,35 @@ export default async function AcompanhamentoPedidoPage({
               </div>
             ))}
           </div>
+
+          {pedido.etapa_link === "em_preparo" ? (
+            <div
+              className={`mt-3 flex items-start gap-2 rounded-md p-2 text-sm ${
+                emPreparoAtrasado ? "bg-danger/10 text-danger" : "bg-primary/10 text-primary"
+              }`}
+            >
+              <Clock size={16} className="mt-0.5 shrink-0" />
+              <div className="font-medium">
+                <p>Foi para preparo às {formatarHora(horaCriacao)}</p>
+                {previsaoEnvio ? (
+                  <p>
+                    {emPreparoAtrasado
+                      ? `Em atraso — previsto para ${formatarHora(previsaoEnvio)}`
+                      : `Previsão de envio até ${formatarHora(previsaoEnvio)}`}
+                  </p>
+                ) : (
+                  <p>Em preparo, aguarde</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            !pedido.cancelamento_solicitado && (
+              <p className="mt-3 text-center text-sm font-medium text-primary">
+                {fraseEtapaAtual(pedido.etapa_link ?? "novo", pedido.tipo_entrega, empresa.tempo_medio_entrega)}
+              </p>
+            )
+          )}
+
           <CancelamentoControls
             slug={slug}
             pedidoId={pedido.id}
@@ -113,17 +192,45 @@ export default async function AcompanhamentoPedidoPage({
             </li>
           ))}
         </ul>
-        <div className="flex justify-between border-t border-secondary/40 pt-3 text-sm font-semibold">
+        {pedido.tipo_entrega === "entrega" && (
+          <div className="flex justify-between border-t border-secondary/40 pt-3 text-sm text-secondary">
+            <span>Taxa de entrega</span>
+            <span>{formatarMoeda(pedido.taxa_entrega)}</span>
+          </div>
+        )}
+        <div
+          className={`flex justify-between pt-1.5 text-sm font-semibold ${
+            pedido.tipo_entrega !== "entrega" ? "border-t border-secondary/40 pt-3" : ""
+          }`}
+        >
           <span>Total</span>
           <span>{formatarMoeda(pedido.total)}</span>
         </div>
       </div>
 
-      <p className="mt-4 text-center text-xs text-secondary">
-        {pedido.tipo_entrega === "retirada"
-          ? "Retirada no local"
-          : `Entrega: ${pedido.logradouro}, ${pedido.numero} — ${pedido.bairro}`}
-      </p>
+      <div className="mt-4 rounded-lg border border-secondary/40 bg-white p-4 text-sm">
+        <p className="mb-2 font-semibold">Detalhes do pedido</p>
+        <div className="flex flex-col gap-1.5 text-secondary">
+          <p>
+            <span className="font-medium text-foreground">Cliente:</span> {pedido.cliente_nome}
+            {pedido.cliente_telefone && ` — ${pedido.cliente_telefone}`}
+          </p>
+          <p>
+            <span className="font-medium text-foreground">Forma de pagamento:</span>{" "}
+            {pedido.forma_pagamento ?? "-"}
+          </p>
+          <p>
+            <span className="font-medium text-foreground">
+              {pedido.tipo_entrega === "retirada" ? "Retirada" : "Entrega"}:
+            </span>{" "}
+            {pedido.tipo_entrega === "retirada"
+              ? "Retirada no local"
+              : [pedido.logradouro, pedido.numero, pedido.complemento, pedido.bairro, pedido.cidade]
+                  .filter(Boolean)
+                  .join(", ")}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

@@ -23,6 +23,7 @@ export interface PedidoHistorico {
   cliente_nome: string | null;
   cliente_telefone: string | null;
   total: number;
+  taxa_entrega: number;
   etapa_link: "entregue" | "cancelado";
   created_at: string;
   closed_at: string | null;
@@ -45,6 +46,14 @@ function formatarMoeda(valor: number) {
 export function HistoricoClient({ pedidos, data }: { pedidos: PedidoHistorico[]; data: string }) {
   const router = useRouter();
   const [vendo, setVendo] = useState<PedidoHistorico | null>(null);
+  const [filtroCliente, setFiltroCliente] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<"todos" | "entregue" | "cancelado">("todos");
+
+  const pedidosFiltrados = pedidos.filter((p) => {
+    const bateCliente = (p.cliente_nome ?? "").toLowerCase().includes(filtroCliente.toLowerCase());
+    const bateStatus = filtroStatus === "todos" || p.etapa_link === filtroStatus;
+    return bateCliente && bateStatus;
+  });
 
   return (
     <div>
@@ -58,13 +67,35 @@ export function HistoricoClient({ pedidos, data }: { pedidos: PedidoHistorico[];
             className="rounded-md border border-secondary/55 px-3 py-2 text-sm"
           />
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-secondary">Cliente</label>
+          <input
+            type="text"
+            value={filtroCliente}
+            onChange={(e) => setFiltroCliente(e.target.value)}
+            placeholder="Buscar por nome..."
+            className="rounded-md border border-secondary/55 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-secondary">Status</label>
+          <select
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value as "todos" | "entregue" | "cancelado")}
+            className="rounded-md border border-secondary/55 px-3 py-2 text-sm"
+          >
+            <option value="todos">Todos</option>
+            <option value="entregue">Entregue</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
       </div>
 
       <div className="rounded-lg border border-secondary/40 bg-white p-4">
         <NumberedTable<PedidoHistorico>
-          rows={pedidos}
+          rows={pedidosFiltrados}
           rowKey={(p) => p.id}
-          emptyMessage="Nenhum pedido nessa data."
+          emptyMessage="Nenhum pedido encontrado."
           columns={[
             { header: "Cliente", render: (p) => p.cliente_nome ?? "-" },
             {
@@ -99,7 +130,11 @@ export function HistoricoClient({ pedidos, data }: { pedidos: PedidoHistorico[];
           <DetailField label="Telefone" value={vendo.cliente_telefone} />
           <DetailField
             label="Status"
-            value={vendo.etapa_link === "entregue" ? "Entregue" : "Cancelado"}
+            value={
+              <span className={`font-semibold ${vendo.etapa_link === "entregue" ? "text-success" : "text-danger"}`}>
+                {vendo.etapa_link === "entregue" ? "Entregue" : "Cancelado"}
+              </span>
+            }
           />
           <DetailField label="Horário" value={new Date(vendo.created_at).toLocaleString("pt-BR")} />
           <DetailField label="Forma de pagamento" value={vendo.forma_pagamento} />
@@ -114,7 +149,11 @@ export function HistoricoClient({ pedidos, data }: { pedidos: PedidoHistorico[];
             />
           )}
           {vendo.etapa_link === "cancelado" && (
-            <DetailField label="Motivo do cancelamento" fullWidth value={vendo.motivo_cancelamento} />
+            <DetailField
+              label="Motivo do cancelamento"
+              fullWidth
+              value={<span className="font-semibold text-danger">{vendo.motivo_cancelamento}</span>}
+            />
           )}
           <DetailField
             label="Itens"
@@ -143,6 +182,9 @@ export function HistoricoClient({ pedidos, data }: { pedidos: PedidoHistorico[];
             }
           />
           {vendo.observacoes && <DetailField label="Observações do pedido" fullWidth value={vendo.observacoes} />}
+          {vendo.tipo_entrega === "entrega" && (
+            <DetailField label="Taxa de entrega" value={formatarMoeda(vendo.taxa_entrega)} />
+          )}
           <DetailField label="Total" value={formatarMoeda(vendo.total)} />
         </DetailModal>
       )}
