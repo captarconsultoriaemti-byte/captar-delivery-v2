@@ -756,9 +756,7 @@ export function LojaClient({
                         <div
                           key={item.id}
                           className={`mb-3 flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
-                            naoRespondido
-                              ? "border-orange-400 bg-orange-50"
-                              : "border-transparent"
+                            naoRespondido ? "border-danger bg-danger/10" : "border-transparent"
                           }`}
                         >
                           {quantidadeModal === 1 ? (
