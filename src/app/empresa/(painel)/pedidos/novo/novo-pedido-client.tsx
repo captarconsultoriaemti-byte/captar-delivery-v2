@@ -347,6 +347,19 @@ export function NovoPedidoClient({
     setItensOpcionaisRespostas((prev) => new Map(prev).set(itemId, quantidadeFinal));
   }
 
+  function avancarPassoModal() {
+    if (passoModal === 2 && configurando?.tipo === "produto") {
+      const erro =
+        validarItensOpcionaisObrigatorios(configurando.item) ??
+        validarEscolhasObrigatorias(configurando.item);
+      if (erro) {
+        showToast("error", erro);
+        return;
+      }
+    }
+    setPassoModal(passoModal === 1 && temItensOpcionais ? 2 : 3);
+  }
+
   function definirEscolhaOpcional(grupoTitulo: string, nome: string) {
     setEscolhasOpcionais((prev) => new Map(prev).set(grupoTitulo, nome));
   }
@@ -1344,11 +1357,7 @@ export function NovoPedidoClient({
                 )}
                 {(passoModal === 1 && (temItensOpcionais || temGrupos)) ||
                 (passoModal === 2 && temGrupos) ? (
-                  <Button
-                    onClick={() => setPassoModal(passoModal === 1 && temItensOpcionais ? 2 : 3)}
-                  >
-                    Próximo
-                  </Button>
+                  <Button onClick={avancarPassoModal}>Próximo</Button>
                 ) : (
                   <Button onClick={confirmarAdicao}>Adicionar ao Pedido</Button>
                 )}
