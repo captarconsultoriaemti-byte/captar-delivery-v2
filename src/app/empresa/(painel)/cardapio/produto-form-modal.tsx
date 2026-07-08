@@ -7,6 +7,7 @@ import { IconAction } from "@/components/ui/icon-action";
 import { MoneyInput, reaisParaFormatado, centavosParaReais } from "@/components/ui/money-input";
 import { useToast } from "@/components/ui/toast";
 import { createProduto, updateProduto } from "@/lib/actions/produtos";
+import { DIAS_SEMANA } from "@/lib/utils/dias-semana";
 
 interface Categoria {
   id: string;
@@ -24,6 +25,7 @@ export interface ProdutoParaEdicao {
   descricao: string | null;
   preco: number;
   categoria_ids: string[];
+  dias_semana: number[];
   ativo: boolean;
   destaque: boolean;
   tem_desconto: boolean;
@@ -61,6 +63,7 @@ export function ProdutoFormModal({
   const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<Set<string>>(
     new Set(produto?.categoria_ids ?? []),
   );
+  const [diasSemana, setDiasSemana] = useState<Set<number>>(new Set(produto?.dias_semana ?? []));
   const [ativo, setAtivo] = useState(produto?.ativo ?? true);
   const [destaque, setDestaque] = useState(produto?.destaque ?? false);
   const [temDesconto, setTemDesconto] = useState(produto?.tem_desconto ?? false);
@@ -109,6 +112,15 @@ export function ProdutoFormModal({
       const novo = new Set(prev);
       if (marcado) novo.add(id);
       else novo.delete(id);
+      return novo;
+    });
+  }
+
+  function alternarDiaSemana(dia: number) {
+    setDiasSemana((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(dia)) novo.delete(dia);
+      else novo.add(dia);
       return novo;
     });
   }
@@ -175,6 +187,7 @@ export function ProdutoFormModal({
     formData.set("descricao", descricao);
     formData.set("preco", String(centavosParaReais(preco)));
     formData.set("categoriaIds", JSON.stringify(Array.from(categoriasSelecionadas)));
+    formData.set("diasSemana", JSON.stringify(Array.from(diasSemana)));
     formData.set("ativo", String(modoEdicao ? ativo : true));
     formData.set("destaque", String(destaque));
     formData.set("temDesconto", String(temDesconto));
@@ -296,6 +309,30 @@ export function ProdutoFormModal({
                     </label>
                   ))
                 )}
+              </div>
+
+              <div className="col-span-2 rounded-md border border-secondary/40 p-3">
+                <p className="mb-2 text-xs font-medium text-secondary">Dias da semana</p>
+                <div className="flex flex-wrap gap-2">
+                  {DIAS_SEMANA.map((dia) => (
+                    <button
+                      key={dia.value}
+                      type="button"
+                      onClick={() => alternarDiaSemana(dia.value)}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+                        diasSemana.has(dia.value)
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-secondary/55 text-secondary"
+                      }`}
+                    >
+                      {dia.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 flex items-center gap-1 text-xs text-secondary">
+                  <Info size={12} />
+                  Nenhum dia marcado = aparece todos os dias.
+                </p>
               </div>
 
               <div className="col-span-2">

@@ -24,6 +24,17 @@ function parseCategoriaIds(formData: FormData): string[] {
   }
 }
 
+function parseDiasSemana(formData: FormData): number[] {
+  const raw = formData.get("diasSemana");
+  if (!raw) return [];
+  try {
+    const lista = JSON.parse(String(raw));
+    return Array.isArray(lista) ? lista.filter((n) => Number.isInteger(n) && n >= 0 && n <= 6) : [];
+  } catch {
+    return [];
+  }
+}
+
 function parseItensOpcionais(formData: FormData): string[] {
   const raw = formData.get("itensOpcionais");
   if (!raw) return [];
@@ -45,6 +56,7 @@ function produtoColumnsFromFormData(formData: FormData) {
     ativo: formData.get("ativo") === "true",
     destaque: formData.get("destaque") === "true",
     tem_desconto: temDesconto,
+    dias_semana: parseDiasSemana(formData),
     desconto_tipo: temDesconto ? String(formData.get("descontoTipo") ?? "percentual") : null,
     desconto_valor: temDesconto ? Number(formData.get("descontoValor") ?? 0) : null,
   };

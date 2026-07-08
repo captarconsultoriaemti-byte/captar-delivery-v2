@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireOnboardingStatus } from "@/lib/onboarding";
+import { disponivelHoje } from "@/lib/utils/dias-semana";
 import { NovoPedidoClient } from "./novo-pedido-client";
 
 export default async function NovoPedidoPage({
@@ -57,23 +58,25 @@ export default async function NovoPedidoPage({
         : Promise.resolve(null),
     ]);
 
-  const produtosComGrupos = (produtos ?? []).map((produto) => {
-    const grupos: { ordem: number }[] = (produto.produto_grupos_opcionais ?? [])
-      .map((v: { grupos_opcionais: { ordem: number } | null }) => v.grupos_opcionais)
-      .filter((g: { ordem: number } | null): g is { ordem: number } => Boolean(g));
+  const produtosComGrupos = (produtos ?? [])
+    .filter((produto) => disponivelHoje(produto.dias_semana))
+    .map((produto) => {
+      const grupos: { ordem: number }[] = (produto.produto_grupos_opcionais ?? [])
+        .map((v: { grupos_opcionais: { ordem: number } | null }) => v.grupos_opcionais)
+        .filter((g: { ordem: number } | null): g is { ordem: number } => Boolean(g));
 
-    grupos.sort((a, b) => a.ordem - b.ordem);
+      grupos.sort((a, b) => a.ordem - b.ordem);
 
-    const itensOpcionais = [...(produto.produto_itens_opcionais ?? [])].sort(
-      (a, b) => a.ordem - b.ordem,
-    );
+      const itensOpcionais = [...(produto.produto_itens_opcionais ?? [])].sort(
+        (a, b) => a.ordem - b.ordem,
+      );
 
-    const categoriaIds = (produto.produto_categorias ?? []).map(
-      (v: { categoria_id: string }) => v.categoria_id,
-    );
+      const categoriaIds = (produto.produto_categorias ?? []).map(
+        (v: { categoria_id: string }) => v.categoria_id,
+      );
 
-    return { ...produto, grupos, itens_opcionais: itensOpcionais, categoria_ids: categoriaIds };
-  });
+      return { ...produto, grupos, itens_opcionais: itensOpcionais, categoria_ids: categoriaIds };
+    });
 
   return (
     <div>
