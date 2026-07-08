@@ -23,7 +23,10 @@ export default async function CardapioPage() {
     supabase.from("categorias").select("id, nome").order("ordem").order("nome"),
     supabase.from("grupos_opcionais").select("id, nome").order("ordem").order("nome"),
     supabase.from("produto_grupos_opcionais").select("produto_id, grupo_id"),
-    supabase.from("produto_itens_opcionais").select("produto_id, nome").order("ordem"),
+    supabase
+      .from("produto_itens_opcionais")
+      .select("produto_id, nome, grupo_titulo")
+      .order("ordem"),
     supabase.from("produto_categorias").select("produto_id, categoria_id"),
   ]);
 
@@ -34,10 +37,13 @@ export default async function CardapioPage() {
     gruposPorProduto.set(vinculo.produto_id, lista);
   }
 
-  const itensOpcionaisPorProduto = new Map<string, string[]>();
+  const itensOpcionaisPorProduto = new Map<
+    string,
+    { nome: string; grupo_titulo: string | null }[]
+  >();
   for (const item of itensOpcionais ?? []) {
     const lista = itensOpcionaisPorProduto.get(item.produto_id) ?? [];
-    lista.push(item.nome);
+    lista.push({ nome: item.nome, grupo_titulo: item.grupo_titulo });
     itensOpcionaisPorProduto.set(item.produto_id, lista);
   }
 

@@ -14,7 +14,27 @@ interface ProdutoDetalhado {
   foto_url: string | null;
   categoriasNomes: string[];
   gruposNomes: string[];
-  itens_opcionais: string[];
+  itens_opcionais: { nome: string; grupo_titulo: string | null }[];
+}
+
+function formatarItensOpcionais(itens: { nome: string; grupo_titulo: string | null }[]): string {
+  if (itens.length === 0) return "Nenhum";
+
+  const simNao = itens.filter((i) => !i.grupo_titulo).map((i) => i.nome);
+  const grupos = new Map<string, string[]>();
+  for (const item of itens) {
+    if (!item.grupo_titulo) continue;
+    const lista = grupos.get(item.grupo_titulo) ?? [];
+    lista.push(item.nome);
+    grupos.set(item.grupo_titulo, lista);
+  }
+
+  const partes = [
+    ...simNao,
+    ...Array.from(grupos.entries()).map(([titulo, opcoes]) => `${titulo}: ${opcoes.join(" ou ")}`),
+  ];
+
+  return partes.join(", ");
 }
 
 function formatarMoeda(valor: number) {
@@ -69,7 +89,7 @@ export function ProdutoViewModal({
       <DetailField label="Descrição" value={produto.descricao} fullWidth />
       <DetailField
         label="Itens opcionais"
-        value={produto.itens_opcionais.length > 0 ? produto.itens_opcionais.join(", ") : "Nenhum"}
+        value={formatarItensOpcionais(produto.itens_opcionais)}
         fullWidth
       />
       <DetailField

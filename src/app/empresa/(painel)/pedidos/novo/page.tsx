@@ -35,7 +35,7 @@ export default async function NovoPedidoPage({
       supabase
         .from("produtos")
         .select(
-          "*, produto_grupos_opcionais(grupos_opcionais(id, nome, ordem, obrigatorio, minimo_selecao, maximo_selecao, opcionais(id, nome, preco_adicional))), produto_itens_opcionais(id, nome, ordem), produto_categorias(categoria_id)",
+          "*, produto_grupos_opcionais(grupos_opcionais(id, nome, ordem, obrigatorio, minimo_selecao, maximo_selecao, opcionais(id, nome, preco_adicional))), produto_itens_opcionais(id, nome, ordem, grupo_titulo), produto_categorias(categoria_id)",
         )
         .eq("ativo", true)
         .order("ordem")

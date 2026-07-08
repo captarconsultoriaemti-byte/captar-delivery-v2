@@ -35,12 +35,26 @@ function parseDiasSemana(formData: FormData): number[] {
   }
 }
 
-function parseItensOpcionais(formData: FormData): string[] {
+interface ItemOpcionalInput {
+  nome: string;
+  grupoTitulo: string | null;
+}
+
+function parseItensOpcionais(formData: FormData): ItemOpcionalInput[] {
   const raw = formData.get("itensOpcionais");
   if (!raw) return [];
   try {
     const lista = JSON.parse(String(raw));
-    return Array.isArray(lista) ? lista.filter((nome) => typeof nome === "string" && nome.trim()) : [];
+    if (!Array.isArray(lista)) return [];
+    return lista
+      .filter((item) => item && typeof item.nome === "string" && item.nome.trim())
+      .map((item) => ({
+        nome: String(item.nome).trim(),
+        grupoTitulo:
+          typeof item.grupoTitulo === "string" && item.grupoTitulo.trim()
+            ? item.grupoTitulo.trim()
+            : null,
+      }));
   } catch {
     return [];
   }
@@ -119,14 +133,19 @@ async function vincularCategorias(
 async function salvarItensOpcionais(
   supabase: Awaited<ReturnType<typeof createClient>>,
   produtoId: string,
-  nomes: string[],
+  itens: ItemOpcionalInput[],
 ) {
   await supabase.from("produto_itens_opcionais").delete().eq("produto_id", produtoId);
 
-  if (nomes.length === 0) return null;
+  if (itens.length === 0) return null;
 
   const { error } = await supabase.from("produto_itens_opcionais").insert(
-    nomes.map((nome, index) => ({ produto_id: produtoId, nome, ordem: index })),
+    itens.map((item, index) => ({
+      produto_id: produtoId,
+      nome: item.nome,
+      grupo_titulo: item.grupoTitulo,
+      ordem: index,
+    })),
   );
 
   return error;

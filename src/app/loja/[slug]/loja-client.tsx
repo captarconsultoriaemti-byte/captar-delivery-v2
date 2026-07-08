@@ -40,6 +40,7 @@ interface GrupoOpcional {
 interface ItemOpcional {
   id: string;
   nome: string;
+  grupo_titulo: string | null;
 }
 
 interface Produto {
@@ -185,6 +186,7 @@ export function LojaClient({
   const [itensOpcionaisRespostas, setItensOpcionaisRespostas] = useState<Map<string, number>>(
     new Map(),
   );
+  const [escolhasOpcionais, setEscolhasOpcionais] = useState<Map<string, string>>(new Map());
   const [quantidadeModal, setQuantidadeModal] = useState(1);
   const [passoModal, setPassoModal] = useState<1 | 2 | 3>(1);
   const temGrupos = configurando?.tipo === "produto" && configurando.item.grupos.length > 0;
@@ -265,7 +267,12 @@ export function LojaClient({
     }
     setConfigurando({ tipo: "produto", item: produto });
     setOpcionaisQuantidades(new Map());
-    setItensOpcionaisRespostas(new Map(produto.itens_opcionais.map((item) => [item.id, 1])));
+    setItensOpcionaisRespostas(
+      new Map(
+        produto.itens_opcionais.filter((item) => !item.grupo_titulo).map((item) => [item.id, 1]),
+      ),
+    );
+    setEscolhasOpcionais(new Map());
     setQuantidadeModal(1);
     setPassoModal(1);
   }
@@ -278,6 +285,7 @@ export function LojaClient({
     setConfigurando({ tipo: "combo", item: combo });
     setOpcionaisQuantidades(new Map());
     setItensOpcionaisRespostas(new Map());
+    setEscolhasOpcionais(new Map());
     setQuantidadeModal(1);
     setPassoModal(1);
   }
@@ -297,6 +305,30 @@ export function LojaClient({
   function definirRespostaItemOpcional(itemId: string, quantidade: number) {
     const quantidadeFinal = Math.max(0, Math.min(quantidade, quantidadeModal));
     setItensOpcionaisRespostas((prev) => new Map(prev).set(itemId, quantidadeFinal));
+  }
+
+  function definirEscolhaOpcional(grupoTitulo: string, nome: string) {
+    setEscolhasOpcionais((prev) => new Map(prev).set(grupoTitulo, nome));
+  }
+
+  function gruposEscolhaDoProduto(produto: Produto): Map<string, ItemOpcional[]> {
+    const grupos = new Map<string, ItemOpcional[]>();
+    for (const item of produto.itens_opcionais) {
+      if (!item.grupo_titulo) continue;
+      const lista = grupos.get(item.grupo_titulo) ?? [];
+      lista.push(item);
+      grupos.set(item.grupo_titulo, lista);
+    }
+    return grupos;
+  }
+
+  function validarEscolhasObrigatorias(produto: Produto): string | null {
+    for (const titulo of gruposEscolhaDoProduto(produto).keys()) {
+      if (!escolhasOpcionais.get(titulo)) {
+        return `Escolha uma opção em "${titulo}".`;
+      }
+    }
+    return null;
   }
 
   function definirQuantidadeOpcional(grupo: GrupoOpcional, opcionalId: string, quantidade: number) {
@@ -338,6 +370,7 @@ export function LojaClient({
   function gerarObservacaoItensOpcionais(produto: Produto): string {
     const notas: string[] = [];
     for (const item of produto.itens_opcionais) {
+      if (item.grupo_titulo) continue;
       const resposta = itensOpcionaisRespostas.get(item.id) ?? quantidadeModal;
       const semItem = quantidadeModal - resposta;
       if (semItem > 0) {
@@ -348,6 +381,9 @@ export function LojaClient({
         );
       }
     }
+    for (const escolhido of escolhasOpcionais.values()) {
+      notas.push(escolhido);
+    }
     return notas.join(", ");
   }
 
@@ -356,7 +392,7 @@ export function LojaClient({
 
     if (configurando.tipo === "produto") {
       const produto = configurando.item;
-      const erro = validarGruposObrigatorios(produto);
+      const erro = validarGruposObrigatorios(produto) ?? validarEscolhasObrigatorias(produto);
       if (erro) {
         showToast("error", erro);
         return;
@@ -687,65 +723,104 @@ export function LojaClient({
                 </>
               )}
 
-              {passoModal === 2 &&
-                configurando.tipo === "produto" &&
-                configurando.item.itens_opcionais.map((item) => {
-                  const resposta = itensOpcionaisRespostas.get(item.id) ?? quantidadeModal;
-                  return (
-                    <div key={item.id} className="mb-3 flex items-center justify-between text-sm">
-                      {quantidadeModal === 1 ? (
-                        <>
-                          <span>Manter {item.nome.toLowerCase()}?</span>
-                          <div className="flex gap-2">
+              {passoModal === 2 && configurando.tipo === "produto" && (
+                <>
+                  {configurando.item.itens_opcionais
+                    .filter((item) => !item.grupo_titulo)
+                    .map((item) => {
+                      const resposta = itensOpcionaisRespostas.get(item.id) ?? quantidadeModal;
+                      return (
+                        <div key={item.id} className="mb-3 flex items-center justify-between text-sm">
+                          {quantidadeModal === 1 ? (
+                            <>
+                              <span>Manter {item.nome.toLowerCase()}?</span>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => definirRespostaItemOpcional(item.id, 1)}
+                                  className={`rounded-md px-3 py-1 text-xs font-medium ${
+                                    resposta > 0
+                                      ? "bg-primary text-white"
+                                      : "bg-secondary/10 text-secondary"
+                                  }`}
+                                >
+                                  Sim
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => definirRespostaItemOpcional(item.id, 0)}
+                                  className={`rounded-md px-3 py-1 text-xs font-medium ${
+                                    resposta === 0
+                                      ? "bg-primary text-white"
+                                      : "bg-secondary/10 text-secondary"
+                                  }`}
+                                >
+                                  Não
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <span>Manter {item.nome.toLowerCase()} em quantas?</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => definirRespostaItemOpcional(item.id, resposta - 1)}
+                                  className="h-6 w-6 rounded bg-secondary/10 text-secondary"
+                                >
+                                  -
+                                </button>
+                                <span className="w-4 text-center">{resposta}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => definirRespostaItemOpcional(item.id, resposta + 1)}
+                                  className="h-6 w-6 rounded bg-secondary/10 text-secondary"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                  {Array.from(gruposEscolhaDoProduto(configurando.item).entries()).map(
+                    ([titulo, opcoes]) => (
+                      <div key={titulo} className="mb-4">
+                        <p className="mb-1 text-xs font-semibold text-secondary">
+                          {titulo}
+                          <span className="text-danger"> * </span>
+                        </p>
+                        {opcoes.map((opcao) => {
+                          const selecionado = escolhasOpcionais.get(titulo) === opcao.nome;
+                          return (
                             <button
+                              key={opcao.id}
                               type="button"
-                              onClick={() => definirRespostaItemOpcional(item.id, 1)}
-                              className={`rounded-md px-3 py-1 text-xs font-medium ${
-                                resposta > 0
-                                  ? "bg-primary text-white"
-                                  : "bg-secondary/10 text-secondary"
+                              onClick={() => definirEscolhaOpcional(titulo, opcao.nome)}
+                              className={`mb-1 flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm ${
+                                selecionado
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-secondary/45 text-secondary"
                               }`}
                             >
-                              Sim
+                              <span
+                                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                                  selecionado ? "border-primary" : "border-secondary/55"
+                                }`}
+                              >
+                                {selecionado && <span className="h-2 w-2 rounded-full bg-primary" />}
+                              </span>
+                              {opcao.nome}
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => definirRespostaItemOpcional(item.id, 0)}
-                              className={`rounded-md px-3 py-1 text-xs font-medium ${
-                                resposta === 0
-                                  ? "bg-primary text-white"
-                                  : "bg-secondary/10 text-secondary"
-                              }`}
-                            >
-                              Não
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <span>Manter {item.nome.toLowerCase()} em quantas?</span>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => definirRespostaItemOpcional(item.id, resposta - 1)}
-                              className="h-6 w-6 rounded bg-secondary/10 text-secondary"
-                            >
-                              -
-                            </button>
-                            <span className="w-4 text-center">{resposta}</span>
-                            <button
-                              type="button"
-                              onClick={() => definirRespostaItemOpcional(item.id, resposta + 1)}
-                              className="h-6 w-6 rounded bg-secondary/10 text-secondary"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+                          );
+                        })}
+                      </div>
+                    ),
+                  )}
+                </>
+              )}
 
               {passoModal === 3 &&
                 configurando.tipo === "produto" &&

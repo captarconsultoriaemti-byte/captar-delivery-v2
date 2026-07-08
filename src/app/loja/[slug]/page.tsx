@@ -32,7 +32,7 @@ export default async function LojaPage({ params }: { params: Promise<{ slug: str
       admin
         .from("produtos")
         .select(
-          "id, nome, descricao, preco, foto_url, destaque, tem_desconto, desconto_tipo, desconto_valor, dias_semana, produto_grupos_opcionais(grupos_opcionais(id, nome, ordem, obrigatorio, minimo_selecao, maximo_selecao, opcionais(id, nome, preco_adicional))), produto_itens_opcionais(id, nome, ordem), produto_categorias(categoria_id)",
+          "id, nome, descricao, preco, foto_url, destaque, tem_desconto, desconto_tipo, desconto_valor, dias_semana, produto_grupos_opcionais(grupos_opcionais(id, nome, ordem, obrigatorio, minimo_selecao, maximo_selecao, opcionais(id, nome, preco_adicional))), produto_itens_opcionais(id, nome, ordem, grupo_titulo), produto_categorias(categoria_id)",
         )
         .eq("empresa_id", empresa.id)
         .eq("ativo", true)

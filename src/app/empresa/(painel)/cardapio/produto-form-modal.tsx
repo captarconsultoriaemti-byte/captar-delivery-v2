@@ -19,6 +19,11 @@ interface GrupoOpcionalDisponivel {
   nome: string;
 }
 
+export interface ItemOpcionalEdicao {
+  nome: string;
+  grupo_titulo: string | null;
+}
+
 export interface ProdutoParaEdicao {
   id: string;
   nome: string;
@@ -33,7 +38,36 @@ export interface ProdutoParaEdicao {
   desconto_valor: number | null;
   foto_url: string | null;
   grupo_ids: string[];
-  itens_opcionais: string[];
+  itens_opcionais: ItemOpcionalEdicao[];
+}
+
+type PerguntaOpcional =
+  | { tipo: "sim_nao"; nome: string }
+  | { tipo: "escolha"; titulo: string; opcoes: string[] };
+
+function perguntasIniciais(itens: ItemOpcionalEdicao[] | undefined): PerguntaOpcional[] {
+  if (!itens || itens.length === 0) return [];
+
+  const perguntas: PerguntaOpcional[] = [];
+  const gruposIndex = new Map<string, number>();
+
+  for (const item of itens) {
+    if (!item.grupo_titulo) {
+      perguntas.push({ tipo: "sim_nao", nome: item.nome });
+      continue;
+    }
+
+    const idx = gruposIndex.get(item.grupo_titulo);
+    if (idx === undefined) {
+      gruposIndex.set(item.grupo_titulo, perguntas.length);
+      perguntas.push({ tipo: "escolha", titulo: item.grupo_titulo, opcoes: [item.nome] });
+    } else {
+      const pergunta = perguntas[idx];
+      if (pergunta.tipo === "escolha") pergunta.opcoes.push(item.nome);
+    }
+  }
+
+  return perguntas;
 }
 
 interface ProdutoFormModalProps {
@@ -82,8 +116,8 @@ export function ProdutoFormModal({
   const [temItensOpcionais, setTemItensOpcionais] = useState(
     (produto?.itens_opcionais?.length ?? 0) > 0,
   );
-  const [itensOpcionais, setItensOpcionais] = useState<string[]>(
-    produto?.itens_opcionais?.length ? produto.itens_opcionais : [""],
+  const [perguntas, setPerguntas] = useState<PerguntaOpcional[]>(
+    perguntasIniciais(produto?.itens_opcionais),
   );
 
   const [gruposSelecionados, setGruposSelecionados] = useState<Set<string>>(
@@ -95,16 +129,54 @@ export function ProdutoFormModal({
     setFotoPreview(file ? URL.createObjectURL(file) : produto?.foto_url ?? null);
   }
 
-  function adicionarItemOpcional() {
-    setItensOpcionais((prev) => [...prev, ""]);
+  function adicionarPerguntaSimNao() {
+    setPerguntas((prev) => [...prev, { tipo: "sim_nao", nome: "" }]);
   }
 
-  function atualizarItemOpcional(index: number, valor: string) {
-    setItensOpcionais((prev) => prev.map((item, i) => (i === index ? valor : item)));
+  function adicionarPerguntaEscolha() {
+    setPerguntas((prev) => [...prev, { tipo: "escolha", titulo: "", opcoes: ["", ""] }]);
   }
 
-  function removerItemOpcional(index: number) {
-    setItensOpcionais((prev) => prev.filter((_, i) => i !== index));
+  function removerPergunta(index: number) {
+    setPerguntas((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function atualizarNomeSimNao(index: number, valor: string) {
+    setPerguntas((prev) =>
+      prev.map((p, i) => (i === index && p.tipo === "sim_nao" ? { ...p, nome: valor } : p)),
+    );
+  }
+
+  function atualizarTituloEscolha(index: number, valor: string) {
+    setPerguntas((prev) =>
+      prev.map((p, i) => (i === index && p.tipo === "escolha" ? { ...p, titulo: valor } : p)),
+    );
+  }
+
+  function atualizarOpcaoEscolha(index: number, opcaoIndex: number, valor: string) {
+    setPerguntas((prev) =>
+      prev.map((p, i) =>
+        i === index && p.tipo === "escolha"
+          ? { ...p, opcoes: p.opcoes.map((o, oi) => (oi === opcaoIndex ? valor : o)) }
+          : p,
+      ),
+    );
+  }
+
+  function adicionarOpcaoEscolha(index: number) {
+    setPerguntas((prev) =>
+      prev.map((p, i) => (i === index && p.tipo === "escolha" ? { ...p, opcoes: [...p.opcoes, ""] } : p)),
+    );
+  }
+
+  function removerOpcaoEscolha(index: number, opcaoIndex: number) {
+    setPerguntas((prev) =>
+      prev.map((p, i) =>
+        i === index && p.tipo === "escolha"
+          ? { ...p, opcoes: p.opcoes.filter((_, oi) => oi !== opcaoIndex) }
+          : p,
+      ),
+    );
   }
 
   function alternarCategoria(id: string, marcado: boolean) {
@@ -165,13 +237,30 @@ export function ProdutoFormModal({
     e.preventDefault();
 
     if (temItensOpcionais) {
-      if (itensOpcionais.length === 0 || itensOpcionais.every((item) => !item.trim())) {
-        showToast("error", "Adicione pelo menos um item opcional ou desmarque a opção.");
+      if (perguntas.length === 0) {
+        showToast("error", "Adicione pelo menos uma pergunta ou desmarque a opção.");
         return;
       }
-      if (itensOpcionais.some((item) => !item.trim())) {
-        showToast("error", "Preencha o nome de todos os itens opcionais ou remova os em branco.");
-        return;
+      for (const pergunta of perguntas) {
+        if (pergunta.tipo === "sim_nao") {
+          if (!pergunta.nome.trim()) {
+            showToast("error", "Preencha o nome de todos os itens ou remova os em branco.");
+            return;
+          }
+        } else {
+          if (!pergunta.titulo.trim()) {
+            showToast("error", "Preencha o título de todas as perguntas de escolha.");
+            return;
+          }
+          const opcoesPreenchidas = pergunta.opcoes.filter((o) => o.trim());
+          if (opcoesPreenchidas.length < 2) {
+            showToast(
+              "error",
+              `Preencha pelo menos 2 opções em "${pergunta.titulo}".`,
+            );
+            return;
+          }
+        }
       }
     }
 
@@ -201,10 +290,18 @@ export function ProdutoFormModal({
       ),
     );
     formData.set("grupoIds", JSON.stringify(Array.from(gruposSelecionados)));
-    formData.set(
-      "itensOpcionais",
-      JSON.stringify(temItensOpcionais ? itensOpcionais.filter((item) => item.trim()) : []),
-    );
+    const linhasItensOpcionais: { nome: string; grupoTitulo: string | null }[] = temItensOpcionais
+      ? perguntas.flatMap((p): { nome: string; grupoTitulo: string | null }[] =>
+          p.tipo === "sim_nao"
+            ? p.nome.trim()
+              ? [{ nome: p.nome.trim(), grupoTitulo: null }]
+              : []
+            : p.opcoes
+                .filter((o) => o.trim())
+                .map((o) => ({ nome: o.trim(), grupoTitulo: p.titulo.trim() })),
+        )
+      : [];
+    formData.set("itensOpcionais", JSON.stringify(linhasItensOpcionais));
     if (foto) formData.set("foto", foto);
 
     const result = modoEdicao
@@ -437,30 +534,96 @@ export function ProdutoFormModal({
               </div>
 
               {temItensOpcionais && (
-                <div className="rounded-md border border-secondary/40 p-3">
-                  {itensOpcionais.map((item, index) => (
-                    <div key={index} className="mb-2 flex items-center gap-2">
-                      <input
-                        value={item}
-                        onChange={(e) => atualizarItemOpcional(index, e.target.value)}
-                        placeholder="Ex: Salada"
-                        className="flex-1 rounded-md border border-secondary/55 px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-                      />
-                      <IconAction
-                        icon={X}
-                        label="Remover"
-                        variant="danger"
-                        onClick={() => removerItemOpcional(index)}
-                      />
+                <div className="flex flex-col gap-3">
+                  {perguntas.map((pergunta, index) => (
+                    <div key={index} className="rounded-md border border-secondary/40 p-3">
+                      {pergunta.tipo === "sim_nao" ? (
+                        <div className="flex items-center gap-2">
+                          <span className="rounded bg-secondary/10 px-1.5 py-0.5 text-[10px] font-medium text-secondary">
+                            Sim/Não
+                          </span>
+                          <input
+                            value={pergunta.nome}
+                            onChange={(e) => atualizarNomeSimNao(index, e.target.value)}
+                            placeholder="Ex: Salada"
+                            className="flex-1 rounded-md border border-secondary/55 px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+                          />
+                          <IconAction
+                            icon={X}
+                            label="Remover"
+                            variant="danger"
+                            onClick={() => removerPergunta(index)}
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                              Escolha
+                            </span>
+                            <input
+                              value={pergunta.titulo}
+                              onChange={(e) => atualizarTituloEscolha(index, e.target.value)}
+                              placeholder="Ex: Carne ou Frango"
+                              className="flex-1 rounded-md border border-secondary/55 px-3 py-1.5 text-sm font-medium focus:border-primary focus:outline-none"
+                            />
+                            <IconAction
+                              icon={X}
+                              label="Remover"
+                              variant="danger"
+                              onClick={() => removerPergunta(index)}
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1.5 pl-2">
+                            {pergunta.opcoes.map((opcao, opcaoIndex) => (
+                              <div key={opcaoIndex} className="flex items-center gap-2">
+                                <input
+                                  value={opcao}
+                                  onChange={(e) =>
+                                    atualizarOpcaoEscolha(index, opcaoIndex, e.target.value)
+                                  }
+                                  placeholder={`Opção ${opcaoIndex + 1}`}
+                                  className="flex-1 rounded-md border border-secondary/55 px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+                                />
+                                {pergunta.opcoes.length > 2 && (
+                                  <IconAction
+                                    icon={X}
+                                    label="Remover opção"
+                                    variant="danger"
+                                    onClick={() => removerOpcaoEscolha(index, opcaoIndex)}
+                                  />
+                                )}
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => adicionarOpcaoEscolha(index)}
+                              className="self-start text-xs font-medium text-primary hover:underline"
+                            >
+                              + Adicionar opção
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    onClick={adicionarItemOpcional}
-                    className="text-xs font-medium text-primary hover:underline"
-                  >
-                    + Adicionar item
-                  </button>
+
+                  <div className="flex gap-4">
+                    <button
+                      type="button"
+                      onClick={adicionarPerguntaSimNao}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      + Pergunta Sim/Não
+                    </button>
+                    <button
+                      type="button"
+                      onClick={adicionarPerguntaEscolha}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      + Pergunta de escolha (um ou outro)
+                    </button>
+                  </div>
                 </div>
               )}
             </form>
