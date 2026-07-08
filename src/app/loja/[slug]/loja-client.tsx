@@ -56,6 +56,7 @@ interface Produto {
   desconto_valor: number | null;
   grupos: GrupoOpcional[];
   itens_opcionais: ItemOpcional[];
+  estoque_maximo: number | null;
 }
 
 interface Categoria {
@@ -263,6 +264,10 @@ export function LojaClient({
   function abrirModalProduto(produto: Produto) {
     if (!aberto) {
       showToast("error", "A loja está fechada no momento.");
+      return;
+    }
+    if (produto.estoque_maximo === 0) {
+      showToast("error", "Esse produto está esgotado no momento.");
       return;
     }
     setConfigurando({ tipo: "produto", item: produto });
@@ -528,15 +533,21 @@ export function LojaClient({
   function renderProdutoCard(produto: Produto) {
     const tarja = formatarTarjaDesconto(produto);
     const precoFinal = calcularPrecoFinal(produto.preco, produto);
+    const esgotado = produto.estoque_maximo === 0;
 
     return (
       <button
         key={produto.id}
         onClick={() => abrirModalProduto(produto)}
-        className={`flex flex-col rounded-lg border border-secondary/45 bg-white p-3 text-left text-sm ${
-          aberto ? "hover:border-primary hover:bg-primary/5" : "cursor-not-allowed opacity-50"
+        className={`relative flex flex-col rounded-lg border border-secondary/45 bg-white p-3 text-left text-sm ${
+          aberto && !esgotado ? "hover:border-primary hover:bg-primary/5" : "cursor-not-allowed opacity-50"
         }`}
       >
+        {esgotado && (
+          <span className="absolute right-2 top-2 rounded-full bg-danger px-2 py-0.5 text-xs font-semibold text-white">
+            Esgotado
+          </span>
+        )}
         <ProdutoThumbnail
           fotoUrl={produto.foto_url}
           nome={produto.nome}

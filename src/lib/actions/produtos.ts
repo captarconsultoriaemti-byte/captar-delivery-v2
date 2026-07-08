@@ -60,6 +60,13 @@ function parseItensOpcionais(formData: FormData): ItemOpcionalInput[] {
   }
 }
 
+function parseEstoqueMaximo(formData: FormData): number | null {
+  const raw = formData.get("estoqueMaximo");
+  if (!raw || String(raw).trim() === "") return null;
+  const numero = Number(raw);
+  return Number.isFinite(numero) ? numero : null;
+}
+
 function produtoColumnsFromFormData(formData: FormData) {
   const temDesconto = formData.get("temDesconto") === "true";
 
@@ -73,6 +80,7 @@ function produtoColumnsFromFormData(formData: FormData) {
     dias_semana: parseDiasSemana(formData),
     desconto_tipo: temDesconto ? String(formData.get("descontoTipo") ?? "percentual") : null,
     desconto_valor: temDesconto ? Number(formData.get("descontoValor") ?? 0) : null,
+    estoque_maximo: parseEstoqueMaximo(formData),
   };
 }
 
@@ -170,6 +178,13 @@ function validarDesconto(dados: ReturnType<typeof produtoColumnsFromFormData>): 
   return null;
 }
 
+function validarEstoqueMaximo(dados: ReturnType<typeof produtoColumnsFromFormData>): string | null {
+  if (dados.estoque_maximo !== null && dados.estoque_maximo < 0) {
+    return "O estoque máximo não pode ser negativo.";
+  }
+  return null;
+}
+
 export async function createProduto(formData: FormData): Promise<ActionResult<boolean>> {
   const auth = await requireEmpresa();
   if ("error" in auth) return auth;
@@ -179,6 +194,9 @@ export async function createProduto(formData: FormData): Promise<ActionResult<bo
 
   const erroDesconto = validarDesconto(dados);
   if (erroDesconto) return { error: erroDesconto };
+
+  const erroEstoque = validarEstoqueMaximo(dados);
+  if (erroEstoque) return { error: erroEstoque };
 
   const supabase = await createClient();
   const grupoIds = parseGrupoIds(formData);
@@ -230,6 +248,9 @@ export async function updateProduto(
 
   const erroDesconto = validarDesconto(dados);
   if (erroDesconto) return { error: erroDesconto };
+
+  const erroEstoque = validarEstoqueMaximo(dados);
+  if (erroEstoque) return { error: erroEstoque };
 
   const supabase = await createClient();
   const grupoIds = parseGrupoIds(formData);

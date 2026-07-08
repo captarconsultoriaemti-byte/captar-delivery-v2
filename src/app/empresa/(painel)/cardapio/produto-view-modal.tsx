@@ -15,6 +15,7 @@ interface ProdutoDetalhado {
   categoriasNomes: string[];
   gruposNomes: string[];
   itens_opcionais: { nome: string; grupo_titulo: string | null }[];
+  estoque_maximo: number | null;
 }
 
 function formatarItensOpcionais(itens: { nome: string; grupo_titulo: string | null }[]): string {
@@ -85,6 +86,16 @@ export function ProdutoViewModal({
         }
       />
       <DetailField label="Destaque" value={produto.destaque ? "Sim" : "Não"} />
+      <DetailField
+        label="Estoque máximo"
+        value={
+          produto.estoque_maximo === null
+            ? "Sem controle"
+            : produto.estoque_maximo === 0
+              ? "Esgotado"
+              : String(produto.estoque_maximo)
+        }
+      />
 
       <DetailField label="Descrição" value={produto.descricao} fullWidth />
       <DetailField

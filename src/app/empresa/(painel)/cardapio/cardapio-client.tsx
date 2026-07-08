@@ -159,6 +159,19 @@ export function CardapioClient({
       },
     },
     {
+      header: "Estoque",
+      render: (p: Produto) =>
+        p.estoque_maximo === null ? (
+          "-"
+        ) : p.estoque_maximo === 0 ? (
+          <span className="rounded-full bg-danger/15 px-2 py-1 text-xs font-medium text-danger">
+            Esgotado
+          </span>
+        ) : (
+          p.estoque_maximo
+        ),
+    },
+    {
       header: "Status",
       render: (p: Produto) => (
         <span

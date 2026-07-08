@@ -39,6 +39,7 @@ export interface ProdutoParaEdicao {
   foto_url: string | null;
   grupo_ids: string[];
   itens_opcionais: ItemOpcionalEdicao[];
+  estoque_maximo: number | null;
 }
 
 type PerguntaOpcional =
@@ -109,6 +110,11 @@ export function ProdutoFormModal({
   );
   const [descontoValorReais, setDescontoValorReais] = useState(
     produto?.desconto_tipo === "valor" ? reaisParaFormatado(produto.desconto_valor ?? 0) : "0,00",
+  );
+  const [estoqueMaximo, setEstoqueMaximo] = useState(
+    produto?.estoque_maximo !== null && produto?.estoque_maximo !== undefined
+      ? String(produto.estoque_maximo)
+      : "",
   );
   const [foto, setFoto] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(produto?.foto_url ?? null);
@@ -230,6 +236,11 @@ export function ProdutoFormModal({
       }
     }
 
+    if (estoqueMaximo.trim() !== "" && Number(estoqueMaximo) < 0) {
+      showToast("error", "O estoque máximo não pode ser negativo.");
+      return;
+    }
+
     setStep(2);
   }
 
@@ -275,6 +286,7 @@ export function ProdutoFormModal({
     formData.set("nome", nome);
     formData.set("descricao", descricao);
     formData.set("preco", String(centavosParaReais(preco)));
+    formData.set("estoqueMaximo", estoqueMaximo.trim());
     formData.set("categoriaIds", JSON.stringify(Array.from(categoriasSelecionadas)));
     formData.set("diasSemana", JSON.stringify(Array.from(diasSemana)));
     formData.set("ativo", String(modoEdicao ? ativo : true));
@@ -435,6 +447,24 @@ export function ProdutoFormModal({
               <div className="col-span-2">
                 <label className="mb-1 block text-sm font-medium">Preço</label>
                 <MoneyInput required value={preco} onChange={setPreco} />
+              </div>
+
+              <div className="col-span-2">
+                <label className="mb-1 block text-sm font-medium">Estoque máximo (opcional)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={estoqueMaximo}
+                  onChange={(e) => setEstoqueMaximo(e.target.value)}
+                  placeholder="Deixe em branco para não controlar estoque"
+                  className="w-full rounded-md border border-secondary/55 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+                <p className="mt-1 flex items-center gap-1 text-xs text-secondary">
+                  <Info size={12} />
+                  Quando chegar a 0, o produto aparece como &quot;Esgotado&quot; e não pode ser
+                  pedido. Edite aqui sempre que precisar ajustar.
+                </p>
               </div>
 
               <div className="col-span-2">
