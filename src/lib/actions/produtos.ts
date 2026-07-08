@@ -310,6 +310,18 @@ export async function deleteProduto(id: string, senha: string): Promise<ActionRe
     };
   }
 
+  const { count: countPedidos } = await supabase
+    .from("pedido_itens")
+    .select("id", { count: "exact", head: true })
+    .eq("produto_id", id);
+
+  if (countPedidos && countPedidos > 0) {
+    return {
+      error:
+        "Esse produto ja foi vendido em pedidos anteriores e nao pode ser excluido, para preservar o historico. Desative-o em vez de excluir.",
+    };
+  }
+
   const { error } = await supabase.from("produtos").delete().eq("id", id);
 
   if (error) return { error: error.message };
