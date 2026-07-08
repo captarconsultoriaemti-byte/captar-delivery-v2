@@ -1158,41 +1158,75 @@ export function NovoPedidoClient({
                         {grupo.maximo_selecao > 0 ? `até ${grupo.maximo_selecao}` : "sem limite"})
                       </span>
                     </p>
-                    {grupo.opcionais.map((opcional) => {
-                      const qtd = opcionaisQuantidades.get(opcional.id) ?? 0;
-                      return (
-                        <div
-                          key={opcional.id}
-                          className="mb-1 flex items-center justify-between text-sm"
-                        >
-                          <span>
-                            {opcional.nome}
-                            {opcional.preco_adicional > 0 && (
-                              <span className="ml-1 text-xs text-secondary">
-                                (+{formatarMoeda(opcional.preco_adicional)})
+                    {grupo.maximo_selecao === 1
+                      ? grupo.opcionais.map((opcional) => {
+                          const selecionado = (opcionaisQuantidades.get(opcional.id) ?? 0) > 0;
+                          return (
+                            <button
+                              key={opcional.id}
+                              type="button"
+                              onClick={() =>
+                                definirQuantidadeOpcional(grupo, opcional.id, selecionado ? 0 : 1)
+                              }
+                              className={`mb-1 flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
+                                selecionado
+                                  ? "border-primary bg-primary/10 text-primary"
+                                  : "border-secondary/45 text-secondary"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2">
+                                <span
+                                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                                    selecionado ? "border-primary" : "border-secondary/55"
+                                  }`}
+                                >
+                                  {selecionado && <span className="h-2 w-2 rounded-full bg-primary" />}
+                                </span>
+                                {opcional.nome}
                               </span>
-                            )}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => definirQuantidadeOpcional(grupo, opcional.id, qtd - 1)}
-                              className="h-6 w-6 rounded bg-secondary/10 text-secondary"
-                            >
-                              -
+                              {opcional.preco_adicional > 0 && (
+                                <span className="text-xs">
+                                  (+{formatarMoeda(opcional.preco_adicional)})
+                                </span>
+                              )}
                             </button>
-                            <span className="w-4 text-center">{qtd}</span>
-                            <button
-                              type="button"
-                              onClick={() => definirQuantidadeOpcional(grupo, opcional.id, qtd + 1)}
-                              className="h-6 w-6 rounded bg-secondary/10 text-secondary"
+                          );
+                        })
+                      : grupo.opcionais.map((opcional) => {
+                          const qtd = opcionaisQuantidades.get(opcional.id) ?? 0;
+                          return (
+                            <div
+                              key={opcional.id}
+                              className="mb-1 flex items-center justify-between text-sm"
                             >
-                              +
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                              <span>
+                                {opcional.nome}
+                                {opcional.preco_adicional > 0 && (
+                                  <span className="ml-1 text-xs text-secondary">
+                                    (+{formatarMoeda(opcional.preco_adicional)})
+                                  </span>
+                                )}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => definirQuantidadeOpcional(grupo, opcional.id, qtd - 1)}
+                                  className="h-6 w-6 rounded bg-secondary/10 text-secondary"
+                                >
+                                  -
+                                </button>
+                                <span className="w-4 text-center">{qtd}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => definirQuantidadeOpcional(grupo, opcional.id, qtd + 1)}
+                                  className="h-6 w-6 rounded bg-secondary/10 text-secondary"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                   </div>
                 ))}
             </div>
