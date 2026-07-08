@@ -33,7 +33,7 @@ export default async function PedidosPage({
     supabase
       .from("pedidos")
       .select(
-        "*, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(nome), combos(nome))",
+        "*, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(id, nome), combos(nome))",
       )
       .eq("origem", "balcao")
       .gte("created_at", inicioDoDia.toISOString())

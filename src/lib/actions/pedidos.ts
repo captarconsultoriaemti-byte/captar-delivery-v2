@@ -229,17 +229,29 @@ export async function salvarPedido(
 
 export async function fecharPedido(
   pedidoId: string,
-  formaPagamento: string,
+  pagamentos: PagamentoDividido[],
 ): Promise<ActionResult<boolean>> {
   const auth = await requireEmpresa();
   if ("error" in auth) return auth;
 
   const supabase = await createClient();
+
+  const { data: pedidoAtual } = await supabase
+    .from("pedidos")
+    .select("total")
+    .eq("id", pedidoId)
+    .single();
+
+  if (!pedidoAtual) return { error: "Pedido não encontrado." };
+
+  const erroPagamentos = validarPagamentos(pagamentos, pedidoAtual.total);
+  if (erroPagamentos) return { error: erroPagamentos };
+
   const { error } = await supabase
     .from("pedidos")
     .update({
       status: "fechado",
-      forma_pagamento: formaPagamento,
+      forma_pagamento: pagamentos.map((p) => p.forma).join(" + "),
       closed_at: new Date().toISOString(),
     })
     .eq("id", pedidoId);

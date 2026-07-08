@@ -28,6 +28,7 @@ interface EnderecoInput {
 interface CriarPedidoLinkInput {
   clienteNome: string;
   clienteWhatsapp: string;
+  clienteCpf: string;
   tipoEntrega: "entrega" | "retirada";
   endereco: EnderecoInput;
   observacao: string;
@@ -207,6 +208,7 @@ export async function criarPedidoLink(
     empresa_id: empresa.id,
     nome: input.clienteNome,
     whatsapp: input.clienteWhatsapp,
+    ...(input.clienteCpf.trim() ? { cpf: input.clienteCpf } : {}),
     ...(input.tipoEntrega === "entrega"
       ? {
           cep: input.endereco.cep,
@@ -241,6 +243,7 @@ export async function criarPedidoLink(
       cliente_id: clienteId,
       cliente_nome: input.clienteNome,
       cliente_telefone: input.clienteWhatsapp,
+      documento_fiscal: input.clienteCpf.trim() || null,
       observacoes: input.observacao || null,
       total,
       taxa_entrega: taxaEntrega,

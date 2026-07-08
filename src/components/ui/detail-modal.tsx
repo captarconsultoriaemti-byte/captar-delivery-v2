@@ -17,7 +17,7 @@ export function DetailModal({
           <h2 className="text-lg font-semibold">{title}</h2>
           <IconAction icon={X} label="Fechar" onClick={onClose} />
         </div>
-        <div className="grid grid-cols-2 gap-4 overflow-y-auto px-6 pb-6">{children}</div>
+        <div className="grid grid-cols-1 gap-4 overflow-y-auto px-6 pb-6 sm:grid-cols-2">{children}</div>
       </div>
     </div>
   );

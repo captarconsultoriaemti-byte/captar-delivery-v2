@@ -192,7 +192,7 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
 
         <div className="overflow-y-auto px-6">
           {step === 1 && (
-            <form id="form-empresa-step1" onSubmit={irParaEndereco} className="grid grid-cols-2 gap-4">
+            <form id="form-empresa-step1" onSubmit={irParaEndereco} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Nome da Empresa" fullWidth>
                 <input
                   required
@@ -302,7 +302,7 @@ export function EmpresaFormModal({ tipos, empresa, onClose, onSaved }: EmpresaFo
           )}
 
           {step === 2 && (
-            <form id="form-empresa-step2" onSubmit={handleSalvar} className="grid grid-cols-2 gap-4">
+            <form id="form-empresa-step2" onSubmit={handleSalvar} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="CEP">
                 <input
                   required

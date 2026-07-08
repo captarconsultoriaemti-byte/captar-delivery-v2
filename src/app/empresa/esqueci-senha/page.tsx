@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
@@ -34,8 +35,16 @@ export default function EsqueciSenhaPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background-soft px-4">
       <div className="w-full max-w-sm rounded-lg bg-white p-8 shadow-md">
-        <h1 className="mb-1 text-xl font-bold text-primary">CAPTAR Delivery</h1>
-        <p className="mb-6 text-sm text-secondary">Recuperar senha</p>
+        <div className="mb-2 flex justify-center">
+          <Image
+            src="/images/LogoCAPTAR_Delivery3.png"
+            alt="CAPTAR Delivery"
+            width={280}
+            height={84}
+            className="h-14 w-auto"
+          />
+        </div>
+        <p className="mb-6 text-center text-sm text-secondary">Recuperar senha</p>
 
         {enviado ? (
           <p className="mb-6 text-sm text-secondary">

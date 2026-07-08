@@ -244,7 +244,7 @@ export function ProdutoFormModal({
 
         <div className="overflow-y-auto px-6">
           {step === 1 && (
-            <form id="form-produto-step1" onSubmit={irParaStep2} className="grid grid-cols-2 gap-4">
+            <form id="form-produto-step1" onSubmit={irParaStep2} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="col-span-2">
                 <label className="mb-1 block text-sm font-medium">Foto (opcional)</label>
                 <div className="flex items-center gap-3">
@@ -345,7 +345,7 @@ export function ProdutoFormModal({
                 </label>
 
                 {temDesconto && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-xs font-medium">Tipo de desconto</label>
                       <select

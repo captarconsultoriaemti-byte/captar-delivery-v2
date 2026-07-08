@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import {
   Home,
   ShoppingCart,
@@ -18,6 +19,7 @@ import { getCurrentEmpresa, getCurrentProfile } from "@/lib/auth";
 import { getOnboardingStatus } from "@/lib/onboarding";
 import { LogoutButton } from "@/components/ui/logout-button";
 import { NotificationBell } from "@/components/ui/notification-bell";
+import { ResponsiveSidebar } from "@/components/ui/responsive-sidebar";
 import { NavLink } from "./nav-link";
 
 export default async function EmpresaPainelLayout({
@@ -44,11 +46,19 @@ export default async function EmpresaPainelLayout({
   const status = await getOnboardingStatus(profile.empresa_id);
 
   return (
-    <div className="flex min-h-screen print:block">
-      <aside className="w-56 shrink-0 border-r border-secondary/40 bg-background-soft p-4 print:hidden">
-        <p className="mb-1 text-lg font-bold text-primary">CAPTAR Delivery</p>
-        <p className="mb-6 truncate text-xs text-secondary">{empresa.nome}</p>
-        <nav className="flex flex-col gap-1 text-sm">
+    <div className="flex min-h-screen flex-col print:block md:flex-row">
+      <ResponsiveSidebar
+        title={
+          <Image
+            src="/images/LogoCAPTAR_Delivery3.png"
+            alt="CAPTAR Delivery"
+            width={280}
+            height={84}
+            className="h-14 w-auto"
+          />
+        }
+      >
+        <nav className="mb-6 flex flex-col gap-1 text-sm md:mt-6">
           <NavLink href="/empresa/inicio" label="Início" icon={Home} bloqueado={false} />
 
           <hr className="my-2 border-t-2 border-secondary/65" />
@@ -133,12 +143,13 @@ export default async function EmpresaPainelLayout({
         <div className="mt-8">
           <LogoutButton redirectTo="/empresa/login" />
         </div>
-      </aside>
+      </ResponsiveSidebar>
       <main className="flex-1">
-        <div className="flex justify-end border-b border-secondary/40 bg-white px-6 py-3 print:hidden">
+        <div className="flex items-center justify-between border-b border-secondary/40 bg-white px-4 py-3 print:hidden md:px-6">
+          <p className="truncate text-sm font-medium text-secondary">{empresa.nome}</p>
           <NotificationBell />
         </div>
-        <div className="p-6 print:p-0">{children}</div>
+        <div className="p-4 print:p-0 md:p-6">{children}</div>
       </main>
     </div>
   );

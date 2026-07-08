@@ -1,10 +1,11 @@
 import { rotuloDocumento } from "@/lib/utils/masks";
-import { formatarOpcionaisComQuantidade } from "@/lib/utils/opcionais";
+import { formatarOpcionaisComQuantidade, agruparOpcionais } from "@/lib/utils/opcionais";
 
 export interface PedidoItemHtml {
   quantidade: number;
   preco_unitario: number;
   opcionais_selecionados: string[];
+  opcionais_precos?: Record<string, number>;
   observacao: string | null;
   nome: string;
 }
@@ -58,7 +59,7 @@ function viaClienteHtml(
   const itensHtml = pedido.pedido_itens
     .map((item) => {
       const opcionais = item.opcionais_selecionados.length
-        ? `<p style="font-size:0.85em;margin:0;">${escaparHtml(formatarOpcionaisComQuantidade(item.opcionais_selecionados))}</p>`
+        ? `<p style="font-size:0.85em;margin:0;">${escaparHtml(formatarOpcionaisComQuantidade(item.opcionais_selecionados, item.opcionais_precos))}</p>`
         : "";
       const obs = item.observacao
         ? `<p style="font-size:0.85em;margin:0;">Obs: ${escaparHtml(item.observacao)}</p>`
@@ -74,7 +75,7 @@ function viaClienteHtml(
     .join("");
 
   return `
-    <div style="font-family:sans-serif;font-size:14pt;line-height:1.3;color:#000;max-width:320px;">
+    <div style="font-family:sans-serif;font-size:10pt;line-height:1.3;color:#000;max-width:190px;">
       <div style="text-align:center;">
         <p style="font-weight:bold;margin:0;">${escaparHtml(empresa.nome)}</p>
         <p style="font-size:0.85em;font-weight:600;text-transform:uppercase;margin:0;">Via do Cliente</p>
@@ -101,15 +102,18 @@ function viaClienteHtml(
 function viaCozinhaHtml(pedido: PedidoHtml) {
   const itensHtml = pedido.pedido_itens
     .map((item) => {
-      const opcionais = item.opcionais_selecionados.length
-        ? `<p style="font-size:0.85em;margin:0;">${escaparHtml(formatarOpcionaisComQuantidade(item.opcionais_selecionados))}</p>`
-        : "";
+      const adicionais = agruparOpcionais(item.opcionais_selecionados)
+        .map(
+          ({ nome, quantidade }) =>
+            `<p style="font-weight:600;margin:0;">Adicional: ${quantidade} x ${escaparHtml(nome)}</p>`,
+        )
+        .join("");
       const obs = item.observacao
         ? `<p style="font-size:0.85em;margin:0;">Obs: ${escaparHtml(item.observacao)}</p>`
         : "";
       return `<li style="margin-bottom:8px;">
-        <p style="font-weight:600;margin:0;">${item.quantidade}x ${escaparHtml(item.nome)}</p>
-        ${opcionais}${obs}
+        <p style="font-weight:600;margin:0;">${item.quantidade} x ${escaparHtml(item.nome)}</p>
+        ${adicionais}${obs}
       </li>`;
     })
     .join("");
@@ -120,7 +124,7 @@ function viaCozinhaHtml(pedido: PedidoHtml) {
   });
 
   return `
-    <div style="font-family:sans-serif;font-size:14pt;line-height:1.3;color:#000;max-width:320px;">
+    <div style="font-family:sans-serif;font-size:10pt;line-height:1.3;color:#000;max-width:190px;">
       <div style="text-align:center;">
         <p style="font-weight:bold;margin:0;">Via da Cozinha</p>
         <p style="font-size:0.85em;margin:0;">${pedido.origem === "link" ? "Pedido pelo link" : "Venda direta"} — ${hora}</p>

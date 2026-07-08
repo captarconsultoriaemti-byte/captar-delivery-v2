@@ -3,19 +3,26 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Pencil, DollarSign, Eye, Printer, Trash2, FileText, Receipt, ChefHat } from "lucide-react";
+import { Pencil, DollarSign, Eye, Printer, Trash2, FileText, Receipt, ChefHat, Plus, X } from "lucide-react";
 import { NumberedTable } from "@/components/ui/numbered-table";
 import { Button } from "@/components/ui/button";
 import { IconAction } from "@/components/ui/icon-action";
 import { IconLinkAction } from "@/components/ui/icon-link-action";
 import { DetailModal, DetailField } from "@/components/ui/detail-modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MoneyInput, reaisParaFormatado, centavosParaReais } from "@/components/ui/money-input";
 import { useToast } from "@/components/ui/toast";
-import { fecharPedido, deletePedido, atualizarDocumentoPedido } from "@/lib/actions/pedidos";
+import {
+  fecharPedido,
+  deletePedido,
+  atualizarDocumentoPedido,
+  type PagamentoDividido,
+} from "@/lib/actions/pedidos";
 import { imprimirHtml } from "@/lib/qz";
 import { gerarHtmlComprovante } from "@/lib/utils/comprovante-html";
 import { maskCpfCnpj } from "@/lib/utils/masks";
 import { formatarOpcionaisComQuantidade } from "@/lib/utils/opcionais";
+import { createClient } from "@/lib/supabase/client";
 
 // venda direta (balcao) imprime a via da cozinha e a via do cliente (que
 // funciona como comprovante/nota manual quando tem cpf ou cnpj preenchido)
@@ -29,7 +36,7 @@ interface PedidoItem {
   preco_unitario: number;
   opcionais_selecionados: string[];
   observacao: string | null;
-  produtos: { nome: string } | null;
+  produtos: { id: string; nome: string } | null;
   combos: { nome: string } | null;
 }
 
@@ -67,7 +74,7 @@ export function PedidosClient({
   const [aba, setAba] = useState<"aberto" | "fechado">("aberto");
   const [fechando, setFechando] = useState<Pedido | null>(null);
   const [visualizando, setVisualizando] = useState<Pedido | null>(null);
-  const [formaPagamento, setFormaPagamento] = useState(formasPagamento[0]);
+  const [pagamentos, setPagamentos] = useState<PagamentoDividido[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [confirmandoImpressao, setConfirmandoImpressao] = useState<string | null>(null);
   const [excluindo, setExcluindo] = useState<Pedido | null>(null);
@@ -81,6 +88,31 @@ export function PedidosClient({
 
   async function imprimirAutomaticamente(pedido: Pedido) {
     if (!impressoraAutomatica) return;
+
+    // busca o preco atual dos adicionais dos produtos do pedido, pra mostrar
+    // o valor do opcional junto no comprovante impresso
+    const produtoIds = [
+      ...new Set(pedido.pedido_itens.map((i) => i.produtos?.id).filter((id): id is string => Boolean(id))),
+    ];
+    const supabase = createClient();
+    const { data: vinculos } = produtoIds.length
+      ? await supabase
+          .from("produto_grupos_opcionais")
+          .select("produto_id, grupos_opcionais(opcionais(nome, preco_adicional))")
+          .in("produto_id", produtoIds)
+      : { data: [] };
+
+    const precosPorProduto = new Map<string, Record<string, number>>();
+    for (const vinculo of (vinculos ?? []) as unknown as {
+      produto_id: string;
+      grupos_opcionais: { opcionais: { nome: string; preco_adicional: number }[] } | null;
+    }[]) {
+      const mapa = precosPorProduto.get(vinculo.produto_id) ?? {};
+      for (const opcional of vinculo.grupos_opcionais?.opcionais ?? []) {
+        mapa[opcional.nome] = opcional.preco_adicional;
+      }
+      precosPorProduto.set(vinculo.produto_id, mapa);
+    }
 
     const html = gerarHtmlComprovante(
       {
@@ -103,6 +135,7 @@ export function PedidosClient({
           quantidade: item.quantidade,
           preco_unitario: item.preco_unitario,
           opcionais_selecionados: item.opcionais_selecionados,
+          opcionais_precos: item.produtos?.id ? precosPorProduto.get(item.produtos.id) : undefined,
           observacao: item.observacao,
           nome: item.produtos?.nome ?? item.combos?.nome ?? "?",
         })),
@@ -134,11 +167,53 @@ export function PedidosClient({
       .join(", ");
   }
 
+  const somaPagamentos = pagamentos.reduce((soma, p) => soma + p.valor, 0);
+  const restante = fechando ? Math.round((fechando.total - somaPagamentos) * 100) / 100 : 0;
+
+  function abrirFechamento(pedido: Pedido) {
+    setFechando(pedido);
+    setPagamentos([{ forma: formasPagamento[0], valor: pedido.total }]);
+  }
+
+  function formasDisponiveis(index: number) {
+    const usadas = new Set(pagamentos.filter((_, i) => i !== index).map((p) => p.forma));
+    return formasPagamento.filter((f) => !usadas.has(f));
+  }
+
+  function adicionarFormaPagamento() {
+    const usadas = new Set(pagamentos.map((p) => p.forma));
+    const proximaForma = formasPagamento.find((f) => !usadas.has(f)) ?? formasPagamento[0];
+    setPagamentos((prev) => [...prev, { forma: proximaForma, valor: Math.max(0, restante) }]);
+  }
+
+  function atualizarPagamento(index: number, campo: "forma" | "valor", valor: string) {
+    setPagamentos((prev) =>
+      prev.map((p, i) =>
+        i === index ? { ...p, [campo]: campo === "valor" ? centavosParaReais(valor) : valor } : p,
+      ),
+    );
+  }
+
+  function removerPagamento(index: number) {
+    setPagamentos((prev) => prev.filter((_, i) => i !== index));
+  }
+
   async function handleFecharCobrar() {
     if (!fechando) return;
+
+    if (Math.abs(restante) > 0.01) {
+      showToast(
+        "error",
+        restante > 0
+          ? `Ainda falta ${restante.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} nas formas de pagamento.`
+          : `As formas de pagamento somam ${Math.abs(restante).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} a mais que o total.`,
+      );
+      return;
+    }
+
     setSalvando(true);
 
-    const result = await fecharPedido(fechando.id, formaPagamento);
+    const result = await fecharPedido(fechando.id, pagamentos);
     setSalvando(false);
 
     if (result.error) {
@@ -302,7 +377,7 @@ export function PedidosClient({
                         icon={DollarSign}
                         label="Fechar e Cobrar"
                         variant="success"
-                        onClick={() => setFechando(p)}
+                        onClick={() => abrirFechamento(p)}
                       />
                       <IconAction
                         icon={Trash2}
@@ -384,18 +459,56 @@ export function PedidosClient({
               </span>
             </p>
 
-            <label className="mb-1 block text-sm font-medium">Forma de pagamento</label>
-            <select
-              value={formaPagamento}
-              onChange={(e) => setFormaPagamento(e.target.value)}
-              className="mb-6 w-full rounded-md border border-secondary/55 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              {formasPagamento.map((forma) => (
-                <option key={forma} value={forma}>
-                  {forma}
-                </option>
+            <p className="mb-2 text-sm font-medium">Formas de pagamento</p>
+            <div className="flex flex-col gap-2">
+              {pagamentos.map((pagamento, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <select
+                    value={pagamento.forma}
+                    onChange={(e) => atualizarPagamento(index, "forma", e.target.value)}
+                    className="flex-1 rounded-md border border-secondary/55 px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
+                  >
+                    {formasDisponiveis(index).map((forma) => (
+                      <option key={forma} value={forma}>
+                        {forma}
+                      </option>
+                    ))}
+                  </select>
+                  <MoneyInput
+                    value={reaisParaFormatado(pagamento.valor)}
+                    onChange={(valorFormatado) => atualizarPagamento(index, "valor", valorFormatado)}
+                    className="w-24"
+                  />
+                  {pagamentos.length > 1 && (
+                    <IconAction
+                      icon={X}
+                      label="Remover forma"
+                      variant="danger"
+                      onClick={() => removerPagamento(index)}
+                    />
+                  )}
+                </div>
               ))}
-            </select>
+            </div>
+            <button
+              type="button"
+              onClick={adicionarFormaPagamento}
+              className="mt-2 flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
+              <Plus size={13} />
+              Adicionar forma de pagamento
+            </button>
+            <p
+              className={`mb-4 mt-2 text-xs ${
+                Math.abs(restante) > 0.01 ? "text-danger" : "text-success"
+              }`}
+            >
+              {Math.abs(restante) <= 0.01
+                ? "Valores conferem com o total."
+                : restante > 0
+                  ? `Falta ${restante.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
+                  : `${Math.abs(restante).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} a mais que o total`}
+            </p>
 
             <div className="flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setFechando(null)}>

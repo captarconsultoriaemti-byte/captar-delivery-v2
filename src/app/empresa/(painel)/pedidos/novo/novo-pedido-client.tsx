@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { X, Star, Plus, UserPlus, Search, PenLine, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconAction } from "@/components/ui/icon-action";
 import { Combobox } from "@/components/ui/combobox";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MoneyInput, reaisParaFormatado, centavosParaReais } from "@/components/ui/money-input";
 import { ProdutoThumbnail } from "@/components/ui/produto-thumbnail";
 import { useToast } from "@/components/ui/toast";
 import { maskWhatsapp, maskCpfCnpj } from "@/lib/utils/masks";
@@ -14,6 +16,9 @@ import { calcularPrecoFinal, formatarTarjaDesconto } from "@/lib/utils/desconto"
 import { formatarOpcionaisComQuantidade } from "@/lib/utils/opcionais";
 import { ClienteFormModal } from "@/app/empresa/(painel)/clientes/cliente-form-modal";
 import type { ClienteCriado } from "@/lib/actions/clientes";
+import { createClient } from "@/lib/supabase/client";
+import { imprimirHtml } from "@/lib/qz";
+import { gerarHtmlComprovante } from "@/lib/utils/comprovante-html";
 
 interface OpcionalItem {
   id: string;
@@ -99,10 +104,31 @@ interface CarrinhoItem extends ItemCarrinho {
 const ABA_DESTAQUES = "destaques";
 const ABA_COMBOS = "combos";
 
+// rascunho do pedido em andamento (carrinho, dados do cliente e desconto)
+// pra nao sumir se a empresa clicar em outro menu e voltar - so vale pra
+// pedido novo (sem ?id na url), pedido existente ja tem seu proprio estado no banco
+const RASCUNHO_KEY = "captar-novo-pedido-rascunho";
+
+interface RascunhoPedido {
+  carrinho: CarrinhoItem[];
+  clienteId: string;
+  clienteNome: string;
+  clienteTelefone: string;
+  documentoFiscal: string;
+  temDesconto: boolean;
+  descontoTipo: "percentual" | "valor";
+  descontoPercentual: string;
+  descontoValorReais: string;
+}
+
 const formasPagamento = ["Dinheiro", "Cartão", "Pix", "iFood", "WhatsApp"];
 
 function formatarMoeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function abrirImpressao(pedidoId: string, via: "ambas" | "cliente" | "cozinha" = "ambas") {
+  window.open(`/empresa/pedidos/${pedidoId}/imprimir?via=${via}`, "_blank");
 }
 
 export function NovoPedidoClient({
@@ -111,6 +137,9 @@ export function NovoPedidoClient({
   combos,
   clientes,
   pedidoExistente,
+  empresa,
+  impressaoAutomatica,
+  impressoraAutomatica,
 }: {
   produtos: Produto[];
   categorias: Categoria[];
@@ -118,6 +147,9 @@ export function NovoPedidoClient({
   clientes: ClienteCadastrado[];
   opcionaisHabilitados: boolean;
   pedidoExistente: PedidoExistente | null;
+  empresa: { nome: string; mensagem_agradecimento: string | null };
+  impressaoAutomatica: boolean;
+  impressoraAutomatica: string | null;
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -169,6 +201,7 @@ export function NovoPedidoClient({
     configurando?.tipo === "produto" && configurando.item.itens_opcionais.length > 0;
 
   const [salvando, setSalvando] = useState<"aberto" | "fechado" | null>(null);
+  const [confirmandoImpressao, setConfirmandoImpressao] = useState<string | null>(null);
   const [mostrarPagamento, setMostrarPagamento] = useState(false);
   const [pagamentos, setPagamentos] = useState<PagamentoDividido[]>([
     { forma: formasPagamento[0], valor: 0 },
@@ -176,7 +209,77 @@ export function NovoPedidoClient({
 
   const [temDesconto, setTemDesconto] = useState(false);
   const [descontoTipo, setDescontoTipo] = useState<"percentual" | "valor">("percentual");
-  const [descontoValor, setDescontoValor] = useState("");
+  const [descontoPercentual, setDescontoPercentual] = useState("");
+  const [descontoValorReais, setDescontoValorReais] = useState("0,00");
+  const descontoValor =
+    descontoTipo === "percentual" ? Number(descontoPercentual) || 0 : centavosParaReais(descontoValorReais);
+
+  // carrega o rascunho salvo (se houver) assim que a tela monta - so pra
+  // pedido novo, nao quando esta editando um pedido ja existente
+  const rascunhoCarregadoRef = useRef(false);
+  useEffect(() => {
+    if (pedidoExistente) {
+      rascunhoCarregadoRef.current = true;
+      return;
+    }
+
+    const bruto = localStorage.getItem(RASCUNHO_KEY);
+    if (bruto) {
+      try {
+        const dados = JSON.parse(bruto) as RascunhoPedido;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (dados.carrinho?.length) setCarrinho(dados.carrinho);
+        if (dados.clienteId) setClienteId(dados.clienteId);
+        if (dados.clienteNome) setClienteNome(dados.clienteNome);
+        if (dados.clienteTelefone) setClienteTelefone(dados.clienteTelefone);
+        if (dados.documentoFiscal) setDocumentoFiscal(dados.documentoFiscal);
+        if (dados.temDesconto) setTemDesconto(dados.temDesconto);
+        if (dados.descontoTipo) setDescontoTipo(dados.descontoTipo);
+        if (dados.descontoPercentual) setDescontoPercentual(dados.descontoPercentual);
+        if (dados.descontoValorReais) setDescontoValorReais(dados.descontoValorReais);
+      } catch {
+        localStorage.removeItem(RASCUNHO_KEY);
+      }
+    }
+    rascunhoCarregadoRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // salva o rascunho a cada mudanca no carrinho/cliente/desconto, so depois
+  // que o carregamento inicial (efeito acima) ja rodou, senao o estado vazio
+  // do primeiro render sobrescreveria o rascunho antes de le-lo
+  useEffect(() => {
+    if (pedidoExistente || !rascunhoCarregadoRef.current) return;
+
+    if (carrinho.length === 0 && !clienteNome.trim() && !clienteTelefone.trim()) {
+      localStorage.removeItem(RASCUNHO_KEY);
+      return;
+    }
+
+    const rascunho: RascunhoPedido = {
+      carrinho,
+      clienteId,
+      clienteNome,
+      clienteTelefone,
+      documentoFiscal,
+      temDesconto,
+      descontoTipo,
+      descontoPercentual,
+      descontoValorReais,
+    };
+    localStorage.setItem(RASCUNHO_KEY, JSON.stringify(rascunho));
+  }, [
+    pedidoExistente,
+    carrinho,
+    clienteId,
+    clienteNome,
+    clienteTelefone,
+    documentoFiscal,
+    temDesconto,
+    descontoTipo,
+    descontoPercentual,
+    descontoValorReais,
+  ]);
 
   const produtosDestaque = produtos.filter((p) => p.destaque);
   const categoriasComProdutos = categorias
@@ -201,7 +304,7 @@ export function NovoPedidoClient({
   const total = calcularPrecoFinal(subtotal, {
     tem_desconto: temDesconto,
     desconto_tipo: descontoTipo,
-    desconto_valor: Number(descontoValor) || 0,
+    desconto_valor: descontoValor,
   });
 
   const somaPagamentos = pagamentos.reduce((soma, p) => soma + p.valor, 0);
@@ -396,17 +499,21 @@ export function NovoPedidoClient({
     setModoCliente(null);
   }
 
+  function formasDisponiveis(index: number) {
+    const usadas = new Set(pagamentos.filter((_, i) => i !== index).map((p) => p.forma));
+    return formasPagamento.filter((f) => !usadas.has(f));
+  }
+
   function adicionarFormaPagamento() {
-    setPagamentos((prev) => [
-      ...prev,
-      { forma: formasPagamento[0], valor: Math.max(0, restante) },
-    ]);
+    const usadas = new Set(pagamentos.map((p) => p.forma));
+    const proximaForma = formasPagamento.find((f) => !usadas.has(f)) ?? formasPagamento[0];
+    setPagamentos((prev) => [...prev, { forma: proximaForma, valor: Math.max(0, restante) }]);
   }
 
   function atualizarPagamento(index: number, campo: "forma" | "valor", valor: string) {
     setPagamentos((prev) =>
       prev.map((p, i) =>
-        i === index ? { ...p, [campo]: campo === "valor" ? Number(valor) || 0 : valor } : p,
+        i === index ? { ...p, [campo]: campo === "valor" ? centavosParaReais(valor) : valor } : p,
       ),
     );
   }
@@ -417,7 +524,7 @@ export function NovoPedidoClient({
 
   function validarDescontoLocal(): string | null {
     if (!temDesconto) return null;
-    const valor = Number(descontoValor) || 0;
+    const valor = descontoValor;
     if (descontoTipo === "percentual") {
       if (!valor || valor <= 0 || valor >= 100) return "Informe um percentual entre 1 e 99.";
     } else {
@@ -449,7 +556,7 @@ export function NovoPedidoClient({
       fechar: false,
       formaPagamento: "",
       descontoTipo: temDesconto ? descontoTipo : null,
-      descontoValor: Number(descontoValor) || 0,
+      descontoValor: descontoValor,
       pagamentos: [],
     });
     setSalvando(null);
@@ -460,7 +567,70 @@ export function NovoPedidoClient({
     }
 
     showToast("success", "Pedido salvo como aberto.");
+    localStorage.removeItem(RASCUNHO_KEY);
     router.push("/empresa/pedidos");
+  }
+
+  async function imprimirAutomaticamente() {
+    if (!impressoraAutomatica) return;
+
+    // busca o preco atual dos adicionais dos produtos do pedido, pra mostrar
+    // o valor do opcional junto no comprovante impresso
+    const produtoIds = [
+      ...new Set(carrinho.map((i) => i.produto_id).filter((id): id is string => Boolean(id))),
+    ];
+    const supabase = createClient();
+    const { data: vinculos } = produtoIds.length
+      ? await supabase
+          .from("produto_grupos_opcionais")
+          .select("produto_id, grupos_opcionais(opcionais(nome, preco_adicional))")
+          .in("produto_id", produtoIds)
+      : { data: [] };
+
+    const precosPorProduto = new Map<string, Record<string, number>>();
+    for (const vinculo of (vinculos ?? []) as unknown as {
+      produto_id: string;
+      grupos_opcionais: { opcionais: { nome: string; preco_adicional: number }[] } | null;
+    }[]) {
+      const mapa = precosPorProduto.get(vinculo.produto_id) ?? {};
+      for (const opcional of vinculo.grupos_opcionais?.opcionais ?? []) {
+        mapa[opcional.nome] = opcional.preco_adicional;
+      }
+      precosPorProduto.set(vinculo.produto_id, mapa);
+    }
+
+    const html = gerarHtmlComprovante(
+      {
+        cliente_nome: clienteNome,
+        cliente_telefone: clienteTelefone,
+        documento_fiscal: documentoFiscal,
+        observacoes: null,
+        total,
+        forma_pagamento: pagamentos.map((p) => p.forma).join(" + "),
+        origem: "balcao",
+        tipo_entrega: "entrega",
+        created_at: new Date().toISOString(),
+        closed_at: new Date().toISOString(),
+        logradouro: null,
+        numero: null,
+        complemento: null,
+        bairro: null,
+        cidade: null,
+        pedido_itens: carrinho.map((item) => ({
+          quantidade: item.quantidade,
+          preco_unitario: item.preco_unitario,
+          opcionais_selecionados: item.opcionais_selecionados,
+          opcionais_precos: item.produto_id ? precosPorProduto.get(item.produto_id) : undefined,
+          observacao: item.observacao,
+          nome: item.nome,
+        })),
+      },
+      empresa,
+      "ambas",
+    );
+
+    const result = await imprimirHtml(impressoraAutomatica, html);
+    if (result.error) showToast("error", result.error);
   }
 
   async function handleFecharCobrar() {
@@ -495,7 +665,7 @@ export function NovoPedidoClient({
       fechar: true,
       formaPagamento: "",
       descontoTipo: temDesconto ? descontoTipo : null,
-      descontoValor: Number(descontoValor) || 0,
+      descontoValor: descontoValor,
       pagamentos,
     });
     setSalvando(null);
@@ -505,8 +675,15 @@ export function NovoPedidoClient({
       return;
     }
 
-    showToast("success", "Pedido fechado e cobrado.");
-    router.push("/empresa/pedidos");
+    showToast("success", "Pedido finalizado.");
+    localStorage.removeItem(RASCUNHO_KEY);
+
+    if (impressaoAutomatica) {
+      await imprimirAutomaticamente();
+      router.push("/empresa/pedidos");
+    } else {
+      setConfirmandoImpressao(result.data!.id);
+    }
   }
 
   function renderProdutoCard(produto: Produto) {
@@ -716,15 +893,20 @@ export function NovoPedidoClient({
                   <option value="percentual">Porcentagem (%)</option>
                   <option value="valor">Valor em R$</option>
                 </select>
-                <input
-                  type="number"
-                  min="0"
-                  step={descontoTipo === "percentual" ? "1" : "0.01"}
-                  value={descontoValor}
-                  onChange={(e) => setDescontoValor(e.target.value)}
-                  placeholder={descontoTipo === "percentual" ? "Ex: 10" : "Ex: 5,00"}
-                  className="rounded-md border border-secondary/55 px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
-                />
+                {descontoTipo === "percentual" ? (
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    step="1"
+                    value={descontoPercentual}
+                    onChange={(e) => setDescontoPercentual(e.target.value)}
+                    placeholder="Ex: 10"
+                    className="rounded-md border border-secondary/55 px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
+                  />
+                ) : (
+                  <MoneyInput value={descontoValorReais} onChange={setDescontoValorReais} />
+                )}
               </div>
             )}
           </div>
@@ -753,20 +935,16 @@ export function NovoPedidoClient({
                       onChange={(e) => atualizarPagamento(index, "forma", e.target.value)}
                       className="flex-1 rounded-md border border-secondary/55 px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
                     >
-                      {formasPagamento.map((forma) => (
+                      {formasDisponiveis(index).map((forma) => (
                         <option key={forma} value={forma}>
                           {forma}
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={pagamento.valor || ""}
-                      onChange={(e) => atualizarPagamento(index, "valor", e.target.value)}
-                      placeholder="0,00"
-                      className="w-24 rounded-md border border-secondary/55 px-2 py-1.5 text-sm focus:border-primary focus:outline-none"
+                    <MoneyInput
+                      value={reaisParaFormatado(pagamento.valor)}
+                      onChange={(valorFormatado) => atualizarPagamento(index, "valor", valorFormatado)}
+                      className="w-24"
                     />
                     {pagamentos.length > 1 && (
                       <IconAction
@@ -804,7 +982,7 @@ export function NovoPedidoClient({
           <div className="flex flex-col gap-2">
             {mostrarPagamento ? (
               <Button variant="success" onClick={handleFecharCobrar} disabled={salvando !== null}>
-                {salvando === "fechado" ? "Cobrando..." : "Confirmar Cobrança"}
+                {salvando === "fechado" ? "Finalizando..." : "Finalizar Pedido"}
               </Button>
             ) : (
               <Button
@@ -1153,6 +1331,22 @@ export function NovoPedidoClient({
           onSaved={handleClienteCriado}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmandoImpressao !== null}
+        title="Imprimir o pedido?"
+        description="Deseja imprimir a via da cozinha e a via do cliente desse pedido agora?"
+        confirmLabel="Imprimir"
+        onConfirm={() => {
+          if (confirmandoImpressao) abrirImpressao(confirmandoImpressao);
+          setConfirmandoImpressao(null);
+          router.push("/empresa/pedidos");
+        }}
+        onCancel={() => {
+          setConfirmandoImpressao(null);
+          router.push("/empresa/pedidos");
+        }}
+      />
     </div>
   );
 }

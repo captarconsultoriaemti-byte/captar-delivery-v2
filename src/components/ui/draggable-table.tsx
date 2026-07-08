@@ -93,40 +93,42 @@ export function DraggableTable<T>({
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-secondary/45 text-secondary">
-            <th className="w-8 py-2 pr-2 font-medium" />
-            <th className="w-12 py-2 pr-2 font-medium">#</th>
-            {columns.map((col) => (
-              <th key={col.header} className="py-2 pr-4 font-medium">
-                {col.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length + 2} className="py-6 text-center text-secondary">
-                {emptyMessage}
-              </td>
-            </tr>
-          ) : (
-            <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-              {rows.map((row, index) => (
-                <SortableRow
-                  key={rowKey(row)}
-                  id={rowKey(row)}
-                  index={index}
-                  row={row}
-                  columns={columns}
-                />
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-secondary/45 text-secondary">
+              <th className="w-8 py-2 pr-2 font-medium" />
+              <th className="w-12 py-2 pr-2 font-medium">#</th>
+              {columns.map((col) => (
+                <th key={col.header} className="py-2 pr-4 font-medium whitespace-nowrap">
+                  {col.header}
+                </th>
               ))}
-            </SortableContext>
-          )}
-        </tbody>
-      </table>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length + 2} className="py-6 text-center text-secondary">
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+                {rows.map((row, index) => (
+                  <SortableRow
+                    key={rowKey(row)}
+                    id={rowKey(row)}
+                    index={index}
+                    row={row}
+                    columns={columns}
+                  />
+                ))}
+              </SortableContext>
+            )}
+          </tbody>
+        </table>
+      </div>
     </DndContext>
   );
 }

@@ -307,7 +307,7 @@ export function PedidosOnlineClient({
           const { data: pedidoCompleto } = await supabase
             .from("pedidos")
             .select(
-              "id, cliente_nome, cliente_telefone, observacoes, total, forma_pagamento, origem, tipo_entrega, created_at, closed_at, logradouro, numero, complemento, bairro, cidade, pedido_itens(quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(nome), combos(nome))",
+              "id, cliente_nome, cliente_telefone, documento_fiscal, observacoes, total, forma_pagamento, origem, tipo_entrega, created_at, closed_at, logradouro, numero, complemento, bairro, cidade, pedido_itens(quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(id, nome), combos(nome))",
             )
             .eq("id", novoPedido.id)
             .single();
@@ -316,24 +316,46 @@ export function PedidosOnlineClient({
 
           router.refresh();
 
+          const itens = pedidoCompleto.pedido_itens as unknown as {
+            quantidade: number;
+            preco_unitario: number;
+            opcionais_selecionados: string[];
+            observacao: string | null;
+            produtos: { id: string; nome: string } | null;
+            combos: { nome: string } | null;
+          }[];
+
+          // busca o preco atual dos adicionais dos produtos do pedido, pra
+          // mostrar o valor do opcional junto no comprovante impresso
+          const produtoIds = [...new Set(itens.map((i) => i.produtos?.id).filter((id): id is string => Boolean(id)))];
+          const { data: vinculos } = produtoIds.length
+            ? await supabase
+                .from("produto_grupos_opcionais")
+                .select("produto_id, grupos_opcionais(opcionais(nome, preco_adicional))")
+                .in("produto_id", produtoIds)
+            : { data: [] };
+
+          const precosPorProduto = new Map<string, Record<string, number>>();
+          for (const vinculo of (vinculos ?? []) as unknown as {
+            produto_id: string;
+            grupos_opcionais: { opcionais: { nome: string; preco_adicional: number }[] } | null;
+          }[]) {
+            const mapa = precosPorProduto.get(vinculo.produto_id) ?? {};
+            for (const opcional of vinculo.grupos_opcionais?.opcionais ?? []) {
+              mapa[opcional.nome] = opcional.preco_adicional;
+            }
+            precosPorProduto.set(vinculo.produto_id, mapa);
+          }
+
           const html = gerarHtmlComprovante(
             {
               ...pedidoCompleto,
               origem: "link",
-              documento_fiscal: null,
-              pedido_itens: (
-                pedidoCompleto.pedido_itens as unknown as {
-                  quantidade: number;
-                  preco_unitario: number;
-                  opcionais_selecionados: string[];
-                  observacao: string | null;
-                  produtos: { nome: string } | null;
-                  combos: { nome: string } | null;
-                }[]
-              ).map((item) => ({
+              pedido_itens: itens.map((item) => ({
                 quantidade: item.quantidade,
                 preco_unitario: item.preco_unitario,
                 opcionais_selecionados: item.opcionais_selecionados,
+                opcionais_precos: item.produtos?.id ? precosPorProduto.get(item.produtos.id) : undefined,
                 observacao: item.observacao,
                 nome: item.produtos?.nome ?? item.combos?.nome ?? "?",
               })),

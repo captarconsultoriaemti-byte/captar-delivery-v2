@@ -163,7 +163,7 @@ export function ClienteFormModal({
         <form
           id="form-cliente"
           onSubmit={handleSubmit}
-          className="grid grid-cols-2 gap-4 overflow-y-auto px-6 py-4"
+          className="grid grid-cols-1 gap-4 overflow-y-auto px-6 py-4 sm:grid-cols-2"
         >
           <Field label="Nome">
             <input

@@ -61,7 +61,7 @@ export default async function AcompanhamentoPedidoPage({
   const { data: pedido } = await admin
     .from("pedidos")
     .select(
-      "id, total, taxa_entrega, etapa_link, created_at, cliente_nome, cliente_telefone, tipo_entrega, cidade, bairro, logradouro, numero, complemento, forma_pagamento, cancelamento_solicitado, motivo_cancelamento, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, produtos(nome), combos(nome))",
+      "id, total, taxa_entrega, etapa_link, created_at, cliente_nome, cliente_telefone, documento_fiscal, tipo_entrega, cidade, bairro, logradouro, numero, complemento, forma_pagamento, cancelamento_solicitado, motivo_cancelamento, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, produtos(nome), combos(nome))",
     )
     .eq("id", id)
     .eq("empresa_id", empresa.id)
@@ -215,6 +215,11 @@ export default async function AcompanhamentoPedidoPage({
             <span className="font-medium text-foreground">Cliente:</span> {pedido.cliente_nome}
             {pedido.cliente_telefone && ` — ${pedido.cliente_telefone}`}
           </p>
+          {pedido.documento_fiscal && (
+            <p>
+              <span className="font-medium text-foreground">CPF:</span> {pedido.documento_fiscal}
+            </p>
+          )}
           <p>
             <span className="font-medium text-foreground">Forma de pagamento:</span>{" "}
             {pedido.forma_pagamento ?? "-"}

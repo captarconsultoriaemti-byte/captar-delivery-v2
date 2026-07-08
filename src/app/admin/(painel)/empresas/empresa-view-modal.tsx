@@ -84,7 +84,7 @@ export function EmpresaViewModal({
           <IconAction icon={X} label="Fechar" onClick={onClose} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4 overflow-y-auto px-6 pb-6">
+        <div className="grid grid-cols-1 gap-4 overflow-y-auto px-6 pb-6 sm:grid-cols-2">
           <Campo label="Tipo de Estabelecimento" valor={empresa.tipo_estabelecimento_nome} />
           <Campo label="Status" valor={statusLabel[empresa.status]} />
           <Campo label="E-mail de acesso" valor={empresa.email} />

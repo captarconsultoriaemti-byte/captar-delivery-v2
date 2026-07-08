@@ -3,13 +3,14 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { rotuloDocumento } from "@/lib/utils/masks";
-import { formatarOpcionaisComQuantidade } from "@/lib/utils/opcionais";
+import { formatarOpcionaisComQuantidade, agruparOpcionais } from "@/lib/utils/opcionais";
 
 interface PedidoItem {
   id: string;
   quantidade: number;
   preco_unitario: number;
   opcionais_selecionados: string[];
+  opcionais_precos?: Record<string, number>;
   observacao: string | null;
   produtos: { nome: string } | null;
   combos: { nome: string } | null;
@@ -60,7 +61,7 @@ function ViaCliente({
     .join(", ");
 
   return (
-    <div className="mx-auto max-w-sm text-[14pt] leading-snug text-black">
+    <div className="mx-auto max-w-[190px] text-[10pt] leading-snug text-black">
       <div className="text-center">
         <p className="font-bold">{empresa.nome}</p>
         <p className="text-sm font-semibold uppercase">Via do Cliente</p>
@@ -91,7 +92,9 @@ function ViaCliente({
               <span>{formatarMoeda(item.preco_unitario * item.quantidade)}</span>
             </div>
             {item.opcionais_selecionados.length > 0 && (
-              <p className="text-sm">{formatarOpcionaisComQuantidade(item.opcionais_selecionados)}</p>
+              <p className="text-sm">
+                {formatarOpcionaisComQuantidade(item.opcionais_selecionados, item.opcionais_precos)}
+              </p>
             )}
             {item.observacao && <p className="text-sm">Obs: {item.observacao}</p>}
           </li>
@@ -115,7 +118,7 @@ function ViaCliente({
 
 function ViaCozinha({ pedido }: { pedido: Pedido }) {
   return (
-    <div className="mx-auto max-w-sm text-[14pt] leading-snug text-black">
+    <div className="mx-auto max-w-[190px] text-[10pt] leading-snug text-black">
       <div className="text-center">
         <p className="font-bold">Via da Cozinha</p>
         <p className="text-sm">
@@ -134,11 +137,13 @@ function ViaCozinha({ pedido }: { pedido: Pedido }) {
         {pedido.pedido_itens.map((item) => (
           <li key={item.id}>
             <p className="font-semibold">
-              {item.quantidade}x {item.produtos?.nome ?? item.combos?.nome ?? "?"}
+              {item.quantidade} x {item.produtos?.nome ?? item.combos?.nome ?? "?"}
             </p>
-            {item.opcionais_selecionados.length > 0 && (
-              <p className="text-sm">{formatarOpcionaisComQuantidade(item.opcionais_selecionados)}</p>
-            )}
+            {agruparOpcionais(item.opcionais_selecionados).map(({ nome, quantidade }) => (
+              <p key={nome} className="font-semibold">
+                Adicional: {quantidade} x {nome}
+              </p>
+            ))}
             {item.observacao && <p className="text-sm">Obs: {item.observacao}</p>}
           </li>
         ))}
@@ -173,6 +178,10 @@ export function ComprovanteClient({
 
   return (
     <div className="p-6">
+      {/* sem isso o navegador imprime no tamanho de pagina padrao (A4/Carta)
+          configurado no driver, em vez da largura real da bobina termica */}
+      <style>{`@page { size: 58mm auto; margin: 0; }`}</style>
+
       <div className="mb-4 flex justify-end gap-2 print:hidden">
         <Button variant="secondary" onClick={() => window.close()}>
           Fechar

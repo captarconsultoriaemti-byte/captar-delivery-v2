@@ -111,7 +111,7 @@ export function GrupoFormModal({ grupo, onClose, onSaved }: GrupoFormModalProps)
         </div>
 
         <div className="overflow-y-auto px-6">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="col-span-2">
               <label className="mb-1 block text-sm font-medium">Nome do grupo</label>
               <input

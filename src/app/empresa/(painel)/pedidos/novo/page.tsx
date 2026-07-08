@@ -43,7 +43,7 @@ export default async function NovoPedidoPage({
       supabase.from("combos").select("*").eq("ativo", true).order("nome"),
       supabase
         .from("empresas")
-        .select("opcionais_habilitados")
+        .select("opcionais_habilitados, nome, mensagem_agradecimento, impressao_automatica, impressora_automatica")
         .eq("id", profile!.empresa_id)
         .single(),
       supabase.from("clientes").select("id, nome, whatsapp, cpf").eq("ativo", true).order("nome"),
@@ -87,6 +87,12 @@ export default async function NovoPedidoPage({
         clientes={clientes ?? []}
         opcionaisHabilitados={empresa?.opcionais_habilitados ?? true}
         pedidoExistente={pedidoExistente}
+        empresa={{
+          nome: empresa?.nome ?? "",
+          mensagem_agradecimento: empresa?.mensagem_agradecimento ?? null,
+        }}
+        impressaoAutomatica={empresa?.impressao_automatica ?? false}
+        impressoraAutomatica={empresa?.impressora_automatica ?? null}
       />
     </div>
   );

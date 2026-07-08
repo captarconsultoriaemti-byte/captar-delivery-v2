@@ -8,7 +8,7 @@ import { IconAction } from "@/components/ui/icon-action";
 import { Combobox } from "@/components/ui/combobox";
 import { ProdutoThumbnail } from "@/components/ui/produto-thumbnail";
 import { useToast } from "@/components/ui/toast";
-import { maskWhatsapp, maskCep, unmask } from "@/lib/utils/masks";
+import { maskWhatsapp, maskCep, maskCpf, unmask } from "@/lib/utils/masks";
 import {
   buscarCidadesPorEstado,
   buscarEnderecoPorCep,
@@ -195,6 +195,7 @@ export function LojaClient({
 
   const [nome, setNome] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [cpf, setCpf] = useState("");
   const [observacao, setObservacao] = useState("");
   const [formaPagamento, setFormaPagamento] = useState("");
   const [tipoEntrega, setTipoEntrega] = useState<"entrega" | "retirada">("entrega");
@@ -443,6 +444,7 @@ export function LojaClient({
     const result = await criarPedidoLink(slug, {
       clienteNome: nome,
       clienteWhatsapp: whatsapp,
+      clienteCpf: cpf,
       tipoEntrega,
       endereco: { cep, logradouro, numero, complemento, bairro, cidade, estado },
       observacao,
@@ -894,7 +896,7 @@ export function LojaClient({
                 )
               ) : (
                 <div className="flex flex-col gap-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium">Nome</label>
                       <input
@@ -913,6 +915,16 @@ export function LojaClient({
                         className="w-full rounded-md border border-secondary/55 px-3 py-2 text-sm focus:border-primary focus:outline-none"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">CPF (opcional)</label>
+                    <input
+                      value={cpf}
+                      onChange={(e) => setCpf(maskCpf(e.target.value))}
+                      placeholder="000.000.000-00"
+                      className="w-full rounded-md border border-secondary/55 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    />
                   </div>
 
                   <div>
@@ -983,7 +995,7 @@ export function LojaClient({
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
                           <label className="mb-1 block text-sm font-medium">Logradouro</label>
                           <input
