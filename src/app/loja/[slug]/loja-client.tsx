@@ -267,11 +267,7 @@ export function LojaClient({
     }
     setConfigurando({ tipo: "produto", item: produto });
     setOpcionaisQuantidades(new Map());
-    setItensOpcionaisRespostas(
-      new Map(
-        produto.itens_opcionais.filter((item) => !item.grupo_titulo).map((item) => [item.id, 1]),
-      ),
-    );
+    setItensOpcionaisRespostas(new Map());
     setEscolhasOpcionais(new Map());
     setQuantidadeModal(1);
     setPassoModal(1);
@@ -326,6 +322,16 @@ export function LojaClient({
     for (const titulo of gruposEscolhaDoProduto(produto).keys()) {
       if (!escolhasOpcionais.get(titulo)) {
         return `Escolha uma opção em "${titulo}".`;
+      }
+    }
+    return null;
+  }
+
+  function validarItensOpcionaisObrigatorios(produto: Produto): string | null {
+    for (const item of produto.itens_opcionais) {
+      if (item.grupo_titulo) continue;
+      if (itensOpcionaisRespostas.get(item.id) === undefined) {
+        return `Responda se quer manter "${item.nome}".`;
       }
     }
     return null;
@@ -392,7 +398,10 @@ export function LojaClient({
 
     if (configurando.tipo === "produto") {
       const produto = configurando.item;
-      const erro = validarGruposObrigatorios(produto) ?? validarEscolhasObrigatorias(produto);
+      const erro =
+        validarItensOpcionaisObrigatorios(produto) ??
+        validarEscolhasObrigatorias(produto) ??
+        validarGruposObrigatorios(produto);
       if (erro) {
         showToast("error", erro);
         return;
@@ -728,9 +737,17 @@ export function LojaClient({
                   {configurando.item.itens_opcionais
                     .filter((item) => !item.grupo_titulo)
                     .map((item) => {
-                      const resposta = itensOpcionaisRespostas.get(item.id) ?? quantidadeModal;
+                      const resposta = itensOpcionaisRespostas.get(item.id);
+                      const naoRespondido = resposta === undefined;
                       return (
-                        <div key={item.id} className="mb-3 flex items-center justify-between text-sm">
+                        <div
+                          key={item.id}
+                          className={`mb-3 flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
+                            naoRespondido
+                              ? "border-orange-400 bg-orange-50"
+                              : "border-transparent"
+                          }`}
+                        >
                           {quantidadeModal === 1 ? (
                             <>
                               <span>Manter {item.nome.toLowerCase()}?</span>
@@ -739,7 +756,7 @@ export function LojaClient({
                                   type="button"
                                   onClick={() => definirRespostaItemOpcional(item.id, 1)}
                                   className={`rounded-md px-3 py-1 text-xs font-medium ${
-                                    resposta > 0
+                                    resposta !== undefined && resposta > 0
                                       ? "bg-primary text-white"
                                       : "bg-secondary/10 text-secondary"
                                   }`}
@@ -765,15 +782,19 @@ export function LojaClient({
                               <div className="flex items-center gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => definirRespostaItemOpcional(item.id, resposta - 1)}
+                                  onClick={() =>
+                                    definirRespostaItemOpcional(item.id, (resposta ?? 0) - 1)
+                                  }
                                   className="h-6 w-6 rounded bg-secondary/10 text-secondary"
                                 >
                                   -
                                 </button>
-                                <span className="w-4 text-center">{resposta}</span>
+                                <span className="w-4 text-center">{resposta ?? 0}</span>
                                 <button
                                   type="button"
-                                  onClick={() => definirRespostaItemOpcional(item.id, resposta + 1)}
+                                  onClick={() =>
+                                    definirRespostaItemOpcional(item.id, (resposta ?? 0) + 1)
+                                  }
                                   className="h-6 w-6 rounded bg-secondary/10 text-secondary"
                                 >
                                   +
