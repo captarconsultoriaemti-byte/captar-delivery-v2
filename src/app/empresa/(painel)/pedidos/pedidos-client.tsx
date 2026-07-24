@@ -596,8 +596,8 @@ export function PedidosClient({
 
       <ConfirmDialog
         open={excluindo !== null}
-        title={`Excluir pedido de "${excluindo?.cliente_nome ?? "Balcão"}"?`}
-        description="Essa acao nao pode ser desfeita."
+        title="Tem certeza que deseja excluir este pedido?"
+        description="Esta ação não pode ser desfeita."
         confirmLabel="Excluir"
         destructive
         requirePassword
