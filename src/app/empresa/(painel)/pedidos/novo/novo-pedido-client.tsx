@@ -19,6 +19,7 @@ import type { ClienteCriado } from "@/lib/actions/clientes";
 import { createClient } from "@/lib/supabase/client";
 import { imprimirHtml } from "@/lib/qz";
 import { gerarHtmlComprovante } from "@/lib/utils/comprovante-html";
+import { printReceipt } from "@/lib/print/print-receipt";
 
 interface OpcionalItem {
   id: string;
@@ -634,7 +635,7 @@ export function NovoPedidoClient({
     router.push("/empresa/pedidos");
   }
 
-  async function imprimirAutomaticamente() {
+  async function imprimirAutomaticamente(pedidoId: string) {
     if (!impressoraAutomatica) return;
 
     // busca o preco atual dos adicionais dos produtos do pedido, pra mostrar
@@ -664,21 +665,27 @@ export function NovoPedidoClient({
 
     const html = gerarHtmlComprovante(
       {
+        id: pedidoId,
         cliente_nome: clienteNome,
         cliente_telefone: clienteTelefone,
         documento_fiscal: documentoFiscal,
         observacoes: null,
         total,
+        taxa_entrega: 0,
+        desconto_tipo: temDesconto ? descontoTipo : null,
+        desconto_valor: temDesconto ? descontoValor : null,
         forma_pagamento: pagamentos.map((p) => p.forma).join(" + "),
         origem: "balcao",
         tipo_entrega: "entrega",
         created_at: new Date().toISOString(),
         closed_at: new Date().toISOString(),
+        cep: null,
         logradouro: null,
         numero: null,
         complemento: null,
         bairro: null,
         cidade: null,
+        estado: null,
         pedido_itens: carrinho.map((item) => ({
           quantidade: item.quantidade,
           preco_unitario: item.preco_unitario,
@@ -693,7 +700,10 @@ export function NovoPedidoClient({
     );
 
     const result = await imprimirHtml(impressoraAutomatica, html);
-    if (result.error) showToast("error", result.error);
+    if (result.error) {
+      showToast("error", `${result.error} Abrindo impressão pelo navegador.`);
+      printReceipt(pedidoId);
+    }
   }
 
   async function handleFecharCobrar() {
@@ -742,7 +752,7 @@ export function NovoPedidoClient({
     localStorage.removeItem(RASCUNHO_KEY);
 
     if (impressaoAutomatica) {
-      await imprimirAutomaticamente();
+      await imprimirAutomaticamente(result.data!.id);
       router.push("/empresa/pedidos");
     } else {
       setConfirmandoImpressao(result.data!.id);

@@ -8,10 +8,10 @@ export default async function ImprimirPedidoPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ via?: string }>;
+  searchParams: Promise<{ via?: string; auto?: string }>;
 }) {
   const { id } = await params;
-  const { via } = await searchParams;
+  const { via, auto } = await searchParams;
   const viaValida: Via = via === "cliente" || via === "cozinha" ? via : "ambas";
   const profile = await getCurrentProfile();
   if (!profile?.empresa_id) notFound();
@@ -22,7 +22,7 @@ export default async function ImprimirPedidoPage({
     supabase
       .from("pedidos")
       .select(
-        "id, cliente_nome, cliente_telefone, documento_fiscal, observacoes, total, forma_pagamento, origem, tipo_entrega, created_at, closed_at, logradouro, numero, complemento, bairro, cidade, estado, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(id, nome), combos(nome))",
+        "id, cliente_nome, cliente_telefone, documento_fiscal, observacoes, total, taxa_entrega, desconto_tipo, desconto_valor, forma_pagamento, origem, tipo_entrega, created_at, closed_at, cep, logradouro, numero, complemento, bairro, cidade, estado, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(id, nome), combos(nome))",
       )
       .eq("id", id)
       .eq("empresa_id", profile.empresa_id)
@@ -69,12 +69,30 @@ export default async function ImprimirPedidoPage({
   const pedidoComPrecos = {
     ...pedido,
     pedido_itens: (
-      pedido.pedido_itens as unknown as { produtos: { id: string } | null }[]
+      pedido.pedido_itens as unknown as {
+        quantidade: number;
+        preco_unitario: number;
+        opcionais_selecionados: string[];
+        observacao: string | null;
+        produtos: { id: string; nome: string } | null;
+        combos: { nome: string } | null;
+      }[]
     ).map((item) => ({
-      ...item,
+      quantidade: item.quantidade,
+      preco_unitario: item.preco_unitario,
+      opcionais_selecionados: item.opcionais_selecionados,
       opcionais_precos: item.produtos?.id ? precosPorProduto.get(item.produtos.id) : undefined,
+      observacao: item.observacao,
+      nome: item.produtos?.nome ?? item.combos?.nome ?? "?",
     })),
   };
 
-  return <ComprovanteClient pedido={pedidoComPrecos as never} empresa={empresa!} via={viaValida} />;
+  return (
+    <ComprovanteClient
+      pedido={pedidoComPrecos}
+      empresa={empresa!}
+      via={viaValida}
+      autoFechar={auto === "1"}
+    />
+  );
 }

@@ -20,6 +20,7 @@ import {
 } from "@/lib/actions/pedidos";
 import { imprimirHtml } from "@/lib/qz";
 import { gerarHtmlComprovante } from "@/lib/utils/comprovante-html";
+import { printReceipt } from "@/lib/print/print-receipt";
 import { maskCpfCnpj } from "@/lib/utils/masks";
 import { formatarOpcionaisComQuantidade } from "@/lib/utils/opcionais";
 import { createClient } from "@/lib/supabase/client";
@@ -48,6 +49,9 @@ interface Pedido {
   documento_fiscal: string | null;
   observacoes: string | null;
   total: number;
+  taxa_entrega: number;
+  desconto_tipo: "percentual" | "valor" | null;
+  desconto_valor: number | null;
   forma_pagamento: string | null;
   created_at: string;
   closed_at: string | null;
@@ -116,21 +120,27 @@ export function PedidosClient({
 
     const html = gerarHtmlComprovante(
       {
+        id: pedido.id,
         cliente_nome: pedido.cliente_nome,
         cliente_telefone: pedido.cliente_telefone,
         documento_fiscal: pedido.documento_fiscal,
         observacoes: pedido.observacoes,
         total: pedido.total,
+        taxa_entrega: pedido.taxa_entrega,
+        desconto_tipo: pedido.desconto_tipo,
+        desconto_valor: pedido.desconto_valor,
         forma_pagamento: pedido.forma_pagamento,
         origem: "balcao",
         tipo_entrega: "entrega",
         created_at: pedido.created_at,
         closed_at: pedido.closed_at,
+        cep: null,
         logradouro: null,
         numero: null,
         complemento: null,
         bairro: null,
         cidade: null,
+        estado: null,
         pedido_itens: pedido.pedido_itens.map((item) => ({
           quantidade: item.quantidade,
           preco_unitario: item.preco_unitario,
@@ -146,7 +156,8 @@ export function PedidosClient({
 
     const result = await imprimirHtml(impressoraAutomatica, html);
     if (result.error) {
-      showToast("error", result.error);
+      showToast("error", `${result.error} Abrindo impressão pelo navegador.`);
+      printReceipt(pedido.id);
     }
   }
 

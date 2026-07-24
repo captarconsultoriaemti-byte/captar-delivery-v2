@@ -18,6 +18,7 @@ import {
 } from "@/lib/actions/pedidos-online";
 import { imprimirHtml } from "@/lib/qz";
 import { gerarHtmlComprovante } from "@/lib/utils/comprovante-html";
+import { printReceipt } from "@/lib/print/print-receipt";
 import { formatarOpcionaisComQuantidade } from "@/lib/utils/opcionais";
 
 type Via = "ambas" | "cliente" | "cozinha";
@@ -307,7 +308,7 @@ export function PedidosOnlineClient({
           const { data: pedidoCompleto } = await supabase
             .from("pedidos")
             .select(
-              "id, cliente_nome, cliente_telefone, documento_fiscal, observacoes, total, forma_pagamento, origem, tipo_entrega, created_at, closed_at, logradouro, numero, complemento, bairro, cidade, pedido_itens(quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(id, nome), combos(nome))",
+              "id, cliente_nome, cliente_telefone, documento_fiscal, observacoes, total, taxa_entrega, desconto_tipo, desconto_valor, forma_pagamento, origem, tipo_entrega, created_at, closed_at, cep, logradouro, numero, complemento, bairro, cidade, estado, pedido_itens(quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(id, nome), combos(nome))",
             )
             .eq("id", novoPedido.id)
             .single();
@@ -365,7 +366,10 @@ export function PedidosOnlineClient({
           );
 
           const result = await imprimirHtml(impressoraAutomatica, html);
-          if (result.error) showToast("error", result.error);
+          if (result.error) {
+            showToast("error", `${result.error} Abrindo impressão pelo navegador.`);
+            printReceipt(pedidoCompleto.id);
+          }
         },
       )
       .subscribe();
