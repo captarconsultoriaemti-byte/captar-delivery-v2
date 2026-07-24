@@ -93,8 +93,9 @@ function numeroPedido(pedido: PedidoHtml): string {
 }
 
 function tipoPedido(pedido: PedidoHtml): string {
-  if (pedido.origem === "balcao") return "Balcão";
-  return pedido.tipo_entrega === "retirada" ? "Retirada" : "Entrega";
+  if (pedido.tipo_entrega === "entrega") return "Entrega";
+  if (pedido.tipo_entrega === "retirada") return "Retirada";
+  return "Balcão";
 }
 
 function linhasItemCliente(item: PedidoItemHtml): string[] {
@@ -202,6 +203,7 @@ function gerarTextoViaCozinha(pedido: PedidoHtml): string {
     minute: "2-digit",
   });
   linhas.push(centralizar(`${pedido.origem === "link" ? "Pedido pelo link" : "Venda direta"} ${hora}`));
+  linhas.push(centralizar(tipoPedido(pedido)));
   if (pedido.cliente_nome) linhas.push(centralizar(pedido.cliente_nome));
   linhas.push(separador());
 
