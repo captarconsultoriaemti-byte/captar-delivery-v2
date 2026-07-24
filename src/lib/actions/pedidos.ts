@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireEmpresa, verificarSenhaAtual, type ActionResult } from "@/lib/actions/shared";
 import { calcularPrecoFinal } from "@/lib/utils/desconto";
+import { normalizarBairro } from "@/lib/utils/endereco";
 
 export interface ItemCarrinho {
   produto_id: string | null;
@@ -19,6 +20,16 @@ export interface PagamentoDividido {
   valor: number;
 }
 
+export interface EnderecoEntregaInput {
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+}
+
 interface SalvarPedidoInput {
   clienteNome: string;
   clienteTelefone: string;
@@ -30,6 +41,8 @@ interface SalvarPedidoInput {
   descontoTipo: "percentual" | "valor" | null;
   descontoValor: number;
   pagamentos: PagamentoDividido[];
+  tipoEntrega: "entrega" | "retirada";
+  endereco: EnderecoEntregaInput;
 }
 
 function calcularTotal(itens: ItemCarrinho[]): number {
@@ -63,6 +76,44 @@ function validarPagamentos(pagamentos: PagamentoDividido[], total: number): stri
   }
 
   return null;
+}
+
+function validarEndereco(tipoEntrega: "entrega" | "retirada", endereco: EnderecoEntregaInput): string | null {
+  if (tipoEntrega !== "entrega") return null;
+  const { logradouro, numero, bairro, cidade, estado } = endereco;
+  if (!logradouro.trim() || !numero.trim() || !bairro.trim() || !cidade.trim() || !estado.trim()) {
+    return "Preencha o endereço de entrega completo.";
+  }
+  return null;
+}
+
+// nunca confia no valor de taxa de entrega que vem do cliente: recalcula
+// sempre a partir do bairro cadastrado, com fallback pra taxa padrao da empresa
+async function calcularTaxaEntrega(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  empresaId: string,
+  tipoEntrega: "entrega" | "retirada",
+  bairro: string,
+): Promise<number> {
+  if (tipoEntrega !== "entrega") return 0;
+
+  const { data: empresa } = await supabase
+    .from("empresas")
+    .select("taxa_entrega_padrao")
+    .eq("id", empresaId)
+    .single();
+  const taxaPadrao = empresa?.taxa_entrega_padrao ?? 0;
+
+  if (!bairro.trim()) return taxaPadrao;
+
+  const { data: bairroEntrega } = await supabase
+    .from("bairros_entrega")
+    .select("valor")
+    .eq("empresa_id", empresaId)
+    .eq("bairro_normalizado", normalizarBairro(bairro))
+    .maybeSingle();
+
+  return bairroEntrega?.valor ?? taxaPadrao;
 }
 
 interface VinculoOpcionais {
@@ -154,6 +205,9 @@ export async function salvarPedido(
     return { error: "Informe o nome do cliente." };
   }
 
+  const erroEndereco = validarEndereco(input.tipoEntrega, input.endereco);
+  if (erroEndereco) return { error: erroEndereco };
+
   const supabase = await createClient();
 
   const revalidacao = await revalidarPrecos(supabase, auth.profile.empresa_id, input.itens);
@@ -165,16 +219,54 @@ export async function salvarPedido(
   const erroDesconto = validarDesconto(subtotal, input.descontoTipo, input.descontoValor);
   if (erroDesconto) return { error: erroDesconto };
 
-  const total = calcularPrecoFinal(subtotal, {
+  const totalProdutos = calcularPrecoFinal(subtotal, {
     tem_desconto: Boolean(input.descontoTipo),
     desconto_tipo: input.descontoTipo,
     desconto_valor: input.descontoValor,
   });
 
+  const taxaEntrega = await calcularTaxaEntrega(
+    supabase,
+    auth.profile.empresa_id,
+    input.tipoEntrega,
+    input.endereco.bairro,
+  );
+
+  const total = totalProdutos + taxaEntrega;
+
   if (input.fechar) {
     const erroPagamentos = validarPagamentos(input.pagamentos, total);
     if (erroPagamentos) return { error: erroPagamentos };
   }
+
+  const colunasEndereco: {
+    cep: string | null;
+    logradouro: string | null;
+    numero: string | null;
+    complemento: string | null;
+    bairro: string | null;
+    cidade: string | null;
+    estado: string | null;
+  } =
+    input.tipoEntrega === "entrega"
+      ? {
+          cep: input.endereco.cep,
+          logradouro: input.endereco.logradouro,
+          numero: input.endereco.numero,
+          complemento: input.endereco.complemento,
+          bairro: input.endereco.bairro,
+          cidade: input.endereco.cidade,
+          estado: input.endereco.estado,
+        }
+      : {
+          cep: null,
+          logradouro: null,
+          numero: null,
+          complemento: null,
+          bairro: null,
+          cidade: null,
+          estado: null,
+        };
 
   const dadosPedido = {
     empresa_id: auth.profile.empresa_id,
@@ -183,6 +275,9 @@ export async function salvarPedido(
     documento_fiscal: input.documentoFiscal || null,
     observacoes: input.observacoes || null,
     total,
+    taxa_entrega: taxaEntrega,
+    tipo_entrega: input.tipoEntrega,
+    ...colunasEndereco,
     desconto_tipo: input.descontoTipo,
     desconto_valor: input.descontoTipo ? input.descontoValor : null,
     status: input.fechar ? ("fechado" as const) : ("aberto" as const),

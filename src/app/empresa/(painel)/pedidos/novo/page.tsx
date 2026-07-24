@@ -30,6 +30,7 @@ export default async function NovoPedidoPage({
     { data: combos },
     { data: empresa },
     { data: clientes },
+    { data: bairrosEntrega },
     pedidoExistente,
   ] = await Promise.all([
       supabase
@@ -44,10 +45,20 @@ export default async function NovoPedidoPage({
       supabase.from("combos").select("*").eq("ativo", true).order("nome"),
       supabase
         .from("empresas")
-        .select("opcionais_habilitados, nome, mensagem_agradecimento, impressao_automatica, impressora_automatica")
+        .select(
+          "opcionais_habilitados, nome, mensagem_agradecimento, impressao_automatica, impressora_automatica, taxa_entrega_padrao",
+        )
         .eq("id", profile!.empresa_id)
         .single(),
-      supabase.from("clientes").select("id, nome, whatsapp, cpf").eq("ativo", true).order("nome"),
+      supabase
+        .from("clientes")
+        .select("id, nome, whatsapp, cpf, cep, logradouro, numero, complemento, bairro, cidade, estado")
+        .eq("ativo", true)
+        .order("nome"),
+      supabase
+        .from("bairros_entrega")
+        .select("bairro_normalizado, valor")
+        .eq("empresa_id", profile!.empresa_id),
       id
         ? supabase
             .from("pedidos")
@@ -88,6 +99,8 @@ export default async function NovoPedidoPage({
         categorias={categorias ?? []}
         combos={combos ?? []}
         clientes={clientes ?? []}
+        bairrosEntrega={bairrosEntrega ?? []}
+        taxaEntregaPadrao={empresa?.taxa_entrega_padrao ?? 0}
         opcionaisHabilitados={empresa?.opcionais_habilitados ?? true}
         pedidoExistente={pedidoExistente}
         empresa={{

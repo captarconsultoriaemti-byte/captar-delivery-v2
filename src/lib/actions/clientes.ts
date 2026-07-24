@@ -25,6 +25,13 @@ export interface ClienteCriado {
   nome: string;
   whatsapp: string | null;
   cpf: string | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
 }
 
 export async function createCliente(formData: FormData): Promise<ActionResult<ClienteCriado>> {
@@ -41,7 +48,7 @@ export async function createCliente(formData: FormData): Promise<ActionResult<Cl
       empresa_id: auth.profile.empresa_id,
       ...dados,
     })
-    .select("id, nome, whatsapp, cpf")
+    .select("id, nome, whatsapp, cpf, cep, logradouro, numero, complemento, bairro, cidade, estado")
     .single();
 
   if (error || !data) return { error: error?.message ?? "Nao foi possivel cadastrar o cliente." };

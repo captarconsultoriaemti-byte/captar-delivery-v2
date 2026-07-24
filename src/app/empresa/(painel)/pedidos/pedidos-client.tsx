@@ -55,6 +55,14 @@ interface Pedido {
   forma_pagamento: string | null;
   created_at: string;
   closed_at: string | null;
+  tipo_entrega: "entrega" | "retirada" | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
   pedido_itens: PedidoItem[];
 }
 
@@ -129,16 +137,16 @@ export function PedidosClient({
         desconto_valor: pedido.desconto_valor,
         forma_pagamento: pedido.forma_pagamento,
         origem: "balcao",
-        tipo_entrega: "entrega",
+        tipo_entrega: pedido.tipo_entrega ?? "retirada",
         created_at: pedido.created_at,
         closed_at: pedido.closed_at,
-        cep: null,
-        logradouro: null,
-        numero: null,
-        complemento: null,
-        bairro: null,
-        cidade: null,
-        estado: null,
+        cep: pedido.cep,
+        logradouro: pedido.logradouro,
+        numero: pedido.numero,
+        complemento: pedido.complemento,
+        bairro: pedido.bairro,
+        cidade: pedido.cidade,
+        estado: pedido.estado,
         pedido_itens: pedido.pedido_itens.map((item) => ({
           quantidade: item.quantidade,
           preco_unitario: item.preco_unitario,
@@ -437,6 +445,27 @@ export function PedidosClient({
             value={visualizando.status === "aberto" ? "Aberto" : "Fechado"}
           />
           <DetailField label="Telefone" value={visualizando.cliente_telefone} />
+          <DetailField
+            label="Tipo"
+            value={visualizando.tipo_entrega === "entrega" ? "Entrega" : "Retirada / Balcão"}
+          />
+          {visualizando.tipo_entrega === "entrega" && (
+            <DetailField
+              label="Endereço"
+              fullWidth
+              value={[
+                visualizando.logradouro,
+                visualizando.numero && `nº ${visualizando.numero}`,
+                visualizando.complemento,
+                visualizando.bairro,
+                visualizando.cidade && visualizando.estado
+                  ? `${visualizando.cidade}/${visualizando.estado}`
+                  : visualizando.cidade,
+              ]
+                .filter(Boolean)
+                .join(", ")}
+            />
+          )}
           <DetailField
             label="Horário"
             value={new Date(visualizando.created_at).toLocaleString("pt-BR")}

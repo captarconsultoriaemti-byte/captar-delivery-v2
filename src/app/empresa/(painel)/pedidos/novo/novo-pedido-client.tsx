@@ -10,7 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MoneyInput, reaisParaFormatado, centavosParaReais } from "@/components/ui/money-input";
 import { ProdutoThumbnail } from "@/components/ui/produto-thumbnail";
 import { useToast } from "@/components/ui/toast";
-import { maskWhatsapp, maskCpfCnpj } from "@/lib/utils/masks";
+import { maskWhatsapp, maskCpfCnpj, maskCep } from "@/lib/utils/masks";
 import { salvarPedido, type ItemCarrinho, type PagamentoDividido } from "@/lib/actions/pedidos";
 import { calcularPrecoFinal, formatarTarjaDesconto } from "@/lib/utils/desconto";
 import { formatarOpcionaisComQuantidade } from "@/lib/utils/opcionais";
@@ -20,6 +20,14 @@ import { createClient } from "@/lib/supabase/client";
 import { imprimirHtml } from "@/lib/qz";
 import { gerarHtmlComprovante } from "@/lib/utils/comprovante-html";
 import { printReceipt } from "@/lib/print/print-receipt";
+import {
+  buscarCidadesPorEstado,
+  buscarEnderecoPorCep,
+  buscarEstados,
+  normalizarBairro,
+  type Cidade,
+  type Estado,
+} from "@/lib/utils/endereco";
 
 interface OpcionalItem {
   id: string;
@@ -79,6 +87,18 @@ interface ClienteCadastrado {
   nome: string;
   whatsapp: string | null;
   cpf: string | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+}
+
+interface BairroEntrega {
+  bairro_normalizado: string;
+  valor: number;
 }
 
 interface PedidoItemExistente {
@@ -96,6 +116,14 @@ interface PedidoExistente {
   cliente_telefone: string | null;
   documento_fiscal: string | null;
   observacoes: string | null;
+  tipo_entrega: "entrega" | "retirada" | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
   pedido_itens: PedidoItemExistente[];
 }
 
@@ -139,6 +167,8 @@ export function NovoPedidoClient({
   categorias,
   combos,
   clientes,
+  bairrosEntrega,
+  taxaEntregaPadrao,
   pedidoExistente,
   empresa,
   impressaoAutomatica,
@@ -147,6 +177,8 @@ export function NovoPedidoClient({
   produtos: Produto[];
   categorias: Categoria[];
   combos: Combo[];
+  bairrosEntrega: BairroEntrega[];
+  taxaEntregaPadrao: number;
   clientes: ClienteCadastrado[];
   opcionaisHabilitados: boolean;
   pedidoExistente: PedidoExistente | null;
@@ -169,6 +201,22 @@ export function NovoPedidoClient({
   const [documentoFiscal, setDocumentoFiscal] = useState(
     maskCpfCnpj(pedidoExistente?.documento_fiscal ?? ""),
   );
+
+  const [tipoEntrega, setTipoEntrega] = useState<"entrega" | "retirada">(
+    pedidoExistente?.tipo_entrega ?? "retirada",
+  );
+  const [cep, setCep] = useState(pedidoExistente?.cep ?? "");
+  const [logradouro, setLogradouro] = useState(pedidoExistente?.logradouro ?? "");
+  const [numero, setNumero] = useState(pedidoExistente?.numero ?? "");
+  const [complemento, setComplemento] = useState(pedidoExistente?.complemento ?? "");
+  const [bairro, setBairro] = useState(pedidoExistente?.bairro ?? "");
+  const [cidade, setCidade] = useState(pedidoExistente?.cidade ?? "");
+  const [estado, setEstado] = useState(pedidoExistente?.estado ?? "");
+  const [semCep, setSemCep] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [estados, setEstados] = useState<Estado[]>([]);
+  const [cidades, setCidades] = useState<Cidade[]>([]);
+
   const [buscaCliente, setBuscaCliente] = useState("");
   const [modalCliente, setModalCliente] = useState(false);
   const [modalNovoCliente, setModalNovoCliente] = useState(false);
@@ -305,11 +353,21 @@ export function NovoPedidoClient({
     [carrinho],
   );
 
-  const total = calcularPrecoFinal(subtotal, {
-    tem_desconto: temDesconto,
-    desconto_tipo: descontoTipo,
-    desconto_valor: descontoValor,
-  });
+  const taxaEntrega = useMemo(() => {
+    if (tipoEntrega !== "entrega") return 0;
+    if (!bairro.trim()) return taxaEntregaPadrao;
+    const encontrado = bairrosEntrega.find(
+      (b) => b.bairro_normalizado === normalizarBairro(bairro),
+    );
+    return encontrado ? encontrado.valor : taxaEntregaPadrao;
+  }, [tipoEntrega, bairro, bairrosEntrega, taxaEntregaPadrao]);
+
+  const total =
+    calcularPrecoFinal(subtotal, {
+      tem_desconto: temDesconto,
+      desconto_tipo: descontoTipo,
+      desconto_valor: descontoValor,
+    }) + taxaEntrega;
 
   const somaPagamentos = pagamentos.reduce((soma, p) => soma + p.valor, 0);
   const restante = Math.round((total - somaPagamentos) * 100) / 100;
@@ -528,6 +586,16 @@ export function NovoPedidoClient({
       setClienteNome(cliente.nome);
       setClienteTelefone(maskWhatsapp(cliente.whatsapp ?? ""));
       if (cliente.cpf) setDocumentoFiscal(maskCpfCnpj(cliente.cpf));
+      if (cliente.logradouro) {
+        setTipoEntrega("entrega");
+        setCep(cliente.cep ?? "");
+        setLogradouro(cliente.logradouro ?? "");
+        setNumero(cliente.numero ?? "");
+        setComplemento(cliente.complemento ?? "");
+        setBairro(cliente.bairro ?? "");
+        setCidade(cliente.cidade ?? "");
+        setEstado(cliente.estado ?? "");
+      }
     }
     setModalCliente(false);
     setModoCliente(null);
@@ -539,6 +607,44 @@ export function NovoPedidoClient({
     setClienteTelefone("");
     setBuscaCliente("");
     setModoCliente(null);
+    setTipoEntrega("retirada");
+    setCep("");
+    setLogradouro("");
+    setNumero("");
+    setComplemento("");
+    setBairro("");
+    setCidade("");
+    setEstado("");
+  }
+
+  async function handleCepBlur() {
+    if (semCep) return;
+    const digits = cep.replace(/\D/g, "");
+    if (digits.length !== 8) return;
+
+    setBuscandoCep(true);
+    const enderecoEncontrado = await buscarEnderecoPorCep(digits);
+    setBuscandoCep(false);
+
+    if (!enderecoEncontrado) {
+      showToast("error", "CEP não encontrado. Confira o número ou preencha manualmente.");
+      return;
+    }
+
+    setLogradouro(enderecoEncontrado.logradouro);
+    setBairro(enderecoEncontrado.bairro);
+    setCidade(enderecoEncontrado.localidade);
+    setEstado(enderecoEncontrado.uf);
+  }
+
+  function carregarEstados() {
+    if (estados.length === 0) buscarEstados().then(setEstados);
+  }
+
+  function handleEstadoSemCep(value: string) {
+    setEstado(value);
+    setCidade("");
+    buscarCidadesPorEstado(value).then(setCidades);
   }
 
   function confirmarClienteManual() {
@@ -559,6 +665,16 @@ export function NovoPedidoClient({
     setClienteNome(cliente.nome);
     setClienteTelefone(maskWhatsapp(cliente.whatsapp ?? ""));
     if (cliente.cpf) setDocumentoFiscal(maskCpfCnpj(cliente.cpf));
+    if (cliente.logradouro) {
+      setTipoEntrega("entrega");
+      setCep(cliente.cep ?? "");
+      setLogradouro(cliente.logradouro ?? "");
+      setNumero(cliente.numero ?? "");
+      setComplemento(cliente.complemento ?? "");
+      setBairro(cliente.bairro ?? "");
+      setCidade(cliente.cidade ?? "");
+      setEstado(cliente.estado ?? "");
+    }
     setModalCliente(false);
     setModoCliente(null);
   }
@@ -598,6 +714,14 @@ export function NovoPedidoClient({
     return null;
   }
 
+  function validarEnderecoLocal(): string | null {
+    if (tipoEntrega !== "entrega") return null;
+    if (!logradouro.trim() || !numero.trim() || !bairro.trim() || !cidade.trim() || !estado.trim()) {
+      return "Preencha o endereço de entrega completo.";
+    }
+    return null;
+  }
+
   async function handleSalvarAberto() {
     if (!clienteNome.trim()) {
       showToast("error", "Informe o nome do cliente.");
@@ -607,6 +731,12 @@ export function NovoPedidoClient({
     const erroDesconto = validarDescontoLocal();
     if (erroDesconto) {
       showToast("error", erroDesconto);
+      return;
+    }
+
+    const erroEndereco = validarEnderecoLocal();
+    if (erroEndereco) {
+      showToast("error", erroEndereco);
       return;
     }
 
@@ -622,6 +752,8 @@ export function NovoPedidoClient({
       descontoTipo: temDesconto ? descontoTipo : null,
       descontoValor: descontoValor,
       pagamentos: [],
+      tipoEntrega,
+      endereco: { cep, logradouro, numero, complemento, bairro, cidade, estado },
     });
     setSalvando(null);
 
@@ -671,21 +803,21 @@ export function NovoPedidoClient({
         documento_fiscal: documentoFiscal,
         observacoes: null,
         total,
-        taxa_entrega: 0,
+        taxa_entrega: taxaEntrega,
         desconto_tipo: temDesconto ? descontoTipo : null,
         desconto_valor: temDesconto ? descontoValor : null,
         forma_pagamento: pagamentos.map((p) => p.forma).join(" + "),
         origem: "balcao",
-        tipo_entrega: "entrega",
+        tipo_entrega: tipoEntrega,
         created_at: new Date().toISOString(),
         closed_at: new Date().toISOString(),
-        cep: null,
-        logradouro: null,
-        numero: null,
-        complemento: null,
-        bairro: null,
-        cidade: null,
-        estado: null,
+        cep: tipoEntrega === "entrega" ? cep : null,
+        logradouro: tipoEntrega === "entrega" ? logradouro : null,
+        numero: tipoEntrega === "entrega" ? numero : null,
+        complemento: tipoEntrega === "entrega" ? complemento : null,
+        bairro: tipoEntrega === "entrega" ? bairro : null,
+        cidade: tipoEntrega === "entrega" ? cidade : null,
+        estado: tipoEntrega === "entrega" ? estado : null,
         pedido_itens: carrinho.map((item) => ({
           quantidade: item.quantidade,
           preco_unitario: item.preco_unitario,
@@ -718,6 +850,12 @@ export function NovoPedidoClient({
       return;
     }
 
+    const erroEndereco = validarEnderecoLocal();
+    if (erroEndereco) {
+      showToast("error", erroEndereco);
+      return;
+    }
+
     if (Math.abs(restante) > 0.01) {
       showToast(
         "error",
@@ -740,6 +878,8 @@ export function NovoPedidoClient({
       descontoTipo: temDesconto ? descontoTipo : null,
       descontoValor: descontoValor,
       pagamentos,
+      tipoEntrega,
+      endereco: { cep, logradouro, numero, complemento, bairro, cidade, estado },
     });
     setSalvando(null);
 
@@ -956,6 +1096,140 @@ export function NovoPedidoClient({
 
 
           <div className="mb-3 rounded-md border border-secondary/40 p-3">
+            <p className="mb-2 text-sm font-medium">Como vai ser entregue?</p>
+            <div className="mb-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setTipoEntrega("retirada")}
+                className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
+                  tipoEntrega === "retirada"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-secondary/55 text-secondary"
+                }`}
+              >
+                Retirada / Balcão
+              </button>
+              <button
+                type="button"
+                onClick={() => setTipoEntrega("entrega")}
+                className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
+                  tipoEntrega === "entrega"
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-secondary/55 text-secondary"
+                }`}
+              >
+                Entrega
+              </button>
+            </div>
+
+            {tipoEntrega === "entrega" && (
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={semCep}
+                    onChange={(e) => {
+                      setSemCep(e.target.checked);
+                      if (e.target.checked) carregarEstados();
+                    }}
+                  />
+                  Não sei o CEP
+                </label>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium">CEP</label>
+                  <input
+                    disabled={semCep}
+                    value={cep}
+                    onChange={(e) => setCep(maskCep(e.target.value))}
+                    onBlur={handleCepBlur}
+                    placeholder="00000-000"
+                    className="w-full rounded-md border border-secondary/55 px-3 py-1.5 text-sm focus:border-primary focus:outline-none disabled:bg-secondary/10"
+                  />
+                  {buscandoCep && (
+                    <p className="mt-1 text-xs text-secondary">Buscando endereço...</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium">Logradouro</label>
+                    <input
+                      disabled={!semCep}
+                      value={logradouro}
+                      onChange={(e) => setLogradouro(e.target.value)}
+                      className="w-full rounded-md border border-secondary/55 px-3 py-1.5 text-sm focus:border-primary focus:outline-none disabled:bg-secondary/10"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium">Número</label>
+                    <input
+                      value={numero}
+                      onChange={(e) => setNumero(e.target.value)}
+                      className="w-full rounded-md border border-secondary/55 px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium">Complemento</label>
+                    <input
+                      value={complemento}
+                      onChange={(e) => setComplemento(e.target.value)}
+                      className="w-full rounded-md border border-secondary/55 px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium">Bairro</label>
+                    <input
+                      disabled={!semCep}
+                      value={bairro}
+                      onChange={(e) => setBairro(e.target.value)}
+                      className="w-full rounded-md border border-secondary/55 px-3 py-1.5 text-sm focus:border-primary focus:outline-none disabled:bg-secondary/10"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium">Estado</label>
+                    {semCep ? (
+                      <Combobox
+                        options={estados.map((e) => ({
+                          value: e.sigla,
+                          label: `${e.nome} (${e.sigla})`,
+                        }))}
+                        value={estado}
+                        onChange={handleEstadoSemCep}
+                        placeholder="Selecione o estado"
+                      />
+                    ) : (
+                      <input
+                        disabled
+                        value={estado}
+                        className="w-full rounded-md border border-secondary/55 bg-secondary/10 px-3 py-1.5 text-sm"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium">Cidade</label>
+                    {semCep ? (
+                      <Combobox
+                        options={cidades.map((c) => ({ value: c.nome, label: c.nome }))}
+                        value={cidade}
+                        onChange={setCidade}
+                        placeholder={estado ? "Selecione a cidade" : "Selecione o estado antes"}
+                        disabled={!estado}
+                      />
+                    ) : (
+                      <input
+                        disabled
+                        value={cidade}
+                        className="w-full rounded-md border border-secondary/55 bg-secondary/10 px-3 py-1.5 text-sm"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mb-3 rounded-md border border-secondary/40 p-3">
             <label className="mb-1 flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -997,6 +1271,12 @@ export function NovoPedidoClient({
               <div className="flex justify-between text-secondary">
                 <span>Subtotal</span>
                 <span className="line-through">{formatarMoeda(subtotal)}</span>
+              </div>
+            )}
+            {tipoEntrega === "entrega" && (
+              <div className="flex justify-between text-secondary">
+                <span>Taxa de entrega</span>
+                <span>{formatarMoeda(taxaEntrega)}</span>
               </div>
             )}
             <div className="flex justify-between font-semibold">
