@@ -224,6 +224,18 @@ export function gerarHtmlComprovante(
   empresa: { nome: string; mensagem_agradecimento: string | null },
   via: Via,
 ): string {
+  console.log("[gerarHtmlComprovante] endereco recebido:", {
+    pedidoId: pedido.id,
+    tipo_entrega: pedido.tipo_entrega,
+    cep: pedido.cep,
+    logradouro: pedido.logradouro,
+    numero: pedido.numero,
+    complemento: pedido.complemento,
+    bairro: pedido.bairro,
+    cidade: pedido.cidade,
+    estado: pedido.estado,
+  });
+
   const mostrarCliente = via === "ambas" || via === "cliente";
   const mostrarCozinha = via === "ambas" || via === "cozinha";
 

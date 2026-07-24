@@ -90,9 +90,7 @@ export function PedidosClient({
   const [filtroNome, setFiltroNome] = useState("");
   const [filtroDocumento, setFiltroDocumento] = useState("");
 
-  async function imprimirAutomaticamente(pedido: Pedido) {
-    if (!impressoraAutomatica) return;
-
+  async function montarHtmlComprovante(pedido: Pedido, via: "ambas" | "cliente" | "cozinha") {
     // busca o preco atual dos adicionais dos produtos do pedido, pra mostrar
     // o valor do opcional junto no comprovante impresso
     const produtoIds = [
@@ -118,7 +116,7 @@ export function PedidosClient({
       precosPorProduto.set(vinculo.produto_id, mapa);
     }
 
-    const html = gerarHtmlComprovante(
+    return gerarHtmlComprovante(
       {
         id: pedido.id,
         cliente_nome: pedido.cliente_nome,
@@ -151,13 +149,35 @@ export function PedidosClient({
         })),
       },
       empresa,
-      "ambas",
+      via,
     );
+  }
 
+  async function imprimirAutomaticamente(pedido: Pedido) {
+    if (!impressoraAutomatica) return;
+
+    const html = await montarHtmlComprovante(pedido, "ambas");
     const result = await imprimirHtml(impressoraAutomatica, html);
     if (result.error) {
       showToast("error", `${result.error} Abrindo impressão pelo navegador.`);
       printReceipt(pedido.id);
+    }
+  }
+
+  // reimpressao de pedido ja fechado: tenta QZ Tray primeiro (igual a
+  // impressao automatica), so cai pro dialogo do navegador se nao tiver
+  // impressora configurada ou o QZ Tray falhar/nao estiver conectado
+  async function reimprimir(pedido: Pedido, via: "cliente" | "cozinha") {
+    if (!impressoraAutomatica) {
+      abrirImpressao(pedido.id, via);
+      return;
+    }
+
+    const html = await montarHtmlComprovante(pedido, via);
+    const result = await imprimirHtml(impressoraAutomatica, html);
+    if (result.error) {
+      showToast("error", `${result.error} Abrindo impressão pelo navegador.`);
+      abrirImpressao(pedido.id, via);
     }
   }
 
@@ -591,7 +611,7 @@ export function PedidosClient({
               <button
                 type="button"
                 onClick={() => {
-                  abrirImpressao(reimprimindo.id, "cliente");
+                  reimprimir(reimprimindo, "cliente");
                   setReimprimindo(null);
                 }}
                 className="flex flex-col items-center gap-1 rounded-md border border-secondary/55 p-3 text-xs font-medium text-secondary hover:border-primary hover:bg-primary/5 hover:text-primary"
@@ -602,7 +622,7 @@ export function PedidosClient({
               <button
                 type="button"
                 onClick={() => {
-                  abrirImpressao(reimprimindo.id, "cozinha");
+                  reimprimir(reimprimindo, "cozinha");
                   setReimprimindo(null);
                 }}
                 className="flex flex-col items-center gap-1 rounded-md border border-secondary/55 p-3 text-xs font-medium text-secondary hover:border-primary hover:bg-primary/5 hover:text-primary"
