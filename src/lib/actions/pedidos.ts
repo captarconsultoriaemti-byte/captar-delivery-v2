@@ -43,6 +43,7 @@ interface SalvarPedidoInput {
   pagamentos: PagamentoDividido[];
   tipoEntrega: "entrega" | "retirada";
   endereco: EnderecoEntregaInput;
+  taxaEntregaManual: number | null;
 }
 
 function calcularTotal(itens: ItemCarrinho[]): number {
@@ -87,15 +88,19 @@ function validarEndereco(tipoEntrega: "entrega" | "retirada", endereco: Endereco
   return null;
 }
 
-// nunca confia no valor de taxa de entrega que vem do cliente: recalcula
-// sempre a partir do bairro cadastrado, com fallback pra taxa padrao da empresa
+// esta acao e chamada so pela empresa autenticada (Venda Direta), entao,
+// diferente do checkout publico da loja, aceita um valor manual de taxa
+// informado pelo atendente - se nao vier, recalcula pelo bairro cadastrado,
+// com fallback pra taxa padrao da empresa
 async function calcularTaxaEntrega(
   supabase: Awaited<ReturnType<typeof createClient>>,
   empresaId: string,
   tipoEntrega: "entrega" | "retirada",
   bairro: string,
+  taxaManual: number | null,
 ): Promise<number> {
   if (tipoEntrega !== "entrega") return 0;
+  if (taxaManual !== null) return Math.max(0, taxaManual);
 
   const { data: empresa } = await supabase
     .from("empresas")
@@ -230,6 +235,7 @@ export async function salvarPedido(
     auth.profile.empresa_id,
     input.tipoEntrega,
     input.endereco.bairro,
+    input.taxaEntregaManual,
   );
 
   const total = totalProdutos + taxaEntrega;

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Star, Plus, UserPlus, Search, PenLine, ChevronLeft } from "lucide-react";
+import { X, Star, Plus, UserPlus, Search, PenLine, ChevronLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconAction } from "@/components/ui/icon-action";
 import { Combobox } from "@/components/ui/combobox";
@@ -353,7 +353,7 @@ export function NovoPedidoClient({
     [carrinho],
   );
 
-  const taxaEntrega = useMemo(() => {
+  const taxaEntregaCalculada = useMemo(() => {
     if (tipoEntrega !== "entrega") return 0;
     if (!bairro.trim()) return taxaEntregaPadrao;
     const encontrado = bairrosEntrega.find(
@@ -361,6 +361,21 @@ export function NovoPedidoClient({
     );
     return encontrado ? encontrado.valor : taxaEntregaPadrao;
   }, [tipoEntrega, bairro, bairrosEntrega, taxaEntregaPadrao]);
+
+  const [taxaEntregaOverride, setTaxaEntregaOverride] = useState<number | null>(null);
+  const [editandoTaxa, setEditandoTaxa] = useState(false);
+  const [taxaEntregaInput, setTaxaEntregaInput] = useState("0,00");
+  const taxaEntrega = taxaEntregaOverride ?? taxaEntregaCalculada;
+
+  function abrirEdicaoTaxa() {
+    setTaxaEntregaInput(reaisParaFormatado(taxaEntrega));
+    setEditandoTaxa(true);
+  }
+
+  function confirmarTaxaEntrega() {
+    setTaxaEntregaOverride(centavosParaReais(taxaEntregaInput));
+    setEditandoTaxa(false);
+  }
 
   const total =
     calcularPrecoFinal(subtotal, {
@@ -754,6 +769,7 @@ export function NovoPedidoClient({
       pagamentos: [],
       tipoEntrega,
       endereco: { cep, logradouro, numero, complemento, bairro, cidade, estado },
+      taxaEntregaManual: taxaEntregaOverride,
     });
     setSalvando(null);
 
@@ -880,6 +896,7 @@ export function NovoPedidoClient({
       pagamentos,
       tipoEntrega,
       endereco: { cep, logradouro, numero, complemento, bairro, cidade, estado },
+      taxaEntregaManual: taxaEntregaOverride,
     });
     setSalvando(null);
 
@@ -1274,9 +1291,27 @@ export function NovoPedidoClient({
               </div>
             )}
             {tipoEntrega === "entrega" && (
-              <div className="flex justify-between text-secondary">
+              <div className="flex items-center justify-between text-secondary">
                 <span>Taxa de entrega</span>
-                <span>{formatarMoeda(taxaEntrega)}</span>
+                {editandoTaxa ? (
+                  <div className="flex items-center gap-1">
+                    <MoneyInput
+                      value={taxaEntregaInput}
+                      onChange={setTaxaEntregaInput}
+                      className="w-24"
+                    />
+                    <IconAction icon={Check} label="Confirmar" onClick={confirmarTaxaEntrega} />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={abrirEdicaoTaxa}
+                    className="flex items-center gap-1 hover:text-primary"
+                  >
+                    {formatarMoeda(taxaEntrega)}
+                    <PenLine size={12} />
+                  </button>
+                )}
               </div>
             )}
             <div className="flex justify-between font-semibold">
