@@ -73,13 +73,15 @@ export function PedidosClient({
   empresa,
   impressaoAutomatica,
   impressoraAutomatica,
-  data,
+  dataInicio,
+  dataFim,
 }: {
   pedidos: Pedido[];
   empresa: { nome: string; mensagem_agradecimento: string | null };
   impressaoAutomatica: boolean;
   impressoraAutomatica: string | null;
-  data: string;
+  dataInicio: string;
+  dataFim: string;
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -97,6 +99,14 @@ export function PedidosClient({
   const [reimprimindo, setReimprimindo] = useState<Pedido | null>(null);
   const [filtroNome, setFiltroNome] = useState("");
   const [filtroDocumento, setFiltroDocumento] = useState("");
+
+  function navegarComPeriodo(novoInicio: string, novoFim: string) {
+    const params = new URLSearchParams();
+    if (novoInicio) params.set("dataInicio", novoInicio);
+    if (novoFim) params.set("dataFim", novoFim);
+    const query = params.toString();
+    router.push(query ? `/empresa/pedidos?${query}` : "/empresa/pedidos");
+  }
 
   async function montarHtmlComprovante(pedido: Pedido, via: "ambas" | "cliente" | "cozinha") {
     // busca o preco atual dos adicionais dos produtos do pedido, pra mostrar
@@ -339,11 +349,20 @@ export function PedidosClient({
 
       <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-secondary/40 bg-white p-4">
         <div>
-          <label className="mb-1 block text-xs font-medium text-secondary">Data</label>
+          <label className="mb-1 block text-xs font-medium text-secondary">Data início</label>
           <input
             type="date"
-            value={data}
-            onChange={(e) => router.push(`/empresa/pedidos?data=${e.target.value}`)}
+            value={dataInicio}
+            onChange={(e) => navegarComPeriodo(e.target.value, dataFim)}
+            className="rounded-md border border-secondary/55 px-3 py-2 text-sm"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-secondary">Data fim</label>
+          <input
+            type="date"
+            value={dataFim}
+            onChange={(e) => navegarComPeriodo(dataInicio, e.target.value)}
             className="rounded-md border border-secondary/55 px-3 py-2 text-sm"
           />
         </div>

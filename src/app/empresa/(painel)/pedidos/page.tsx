@@ -14,31 +14,40 @@ function formatarDataLocal(data: Date) {
 export default async function PedidosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ data?: string }>;
+  searchParams: Promise<{ dataInicio?: string; dataFim?: string }>;
 }) {
   const status = await requireOnboardingStatus();
   if (!status.temProduto) redirect("/empresa/cardapio");
 
-  const { data: dataParam } = await searchParams;
+  const { dataInicio: dataInicioParam, dataFim: dataFimParam } = await searchParams;
   const profile = await getCurrentProfile();
   const supabase = await createClient();
 
-  const dataSelecionada = dataParam ? new Date(`${dataParam}T00:00:00`) : new Date();
-  const inicioDoDia = new Date(dataSelecionada);
-  inicioDoDia.setHours(0, 0, 0, 0);
-  const fimDoDia = new Date(dataSelecionada);
-  fimDoDia.setHours(23, 59, 59, 999);
+  // sem nenhum dos dois preenchidos, mantem o comportamento de sempre:
+  // mostra so o dia de hoje ("Lista do Dia"), em vez de todo o historico
+  const hoje = formatarDataLocal(new Date());
+  const temFiltroData = Boolean(dataInicioParam || dataFimParam);
+  const dataInicio = dataInicioParam ?? (temFiltroData ? undefined : hoje);
+  const dataFim = dataFimParam ?? (temFiltroData ? undefined : hoje);
+
+  let queryPedidos = supabase
+    .from("pedidos")
+    .select(
+      "*, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(id, nome), combos(nome))",
+    )
+    .eq("origem", "balcao");
+
+  if (dataInicio) {
+    const inicioDoDia = new Date(`${dataInicio}T00:00:00`);
+    queryPedidos = queryPedidos.gte("created_at", inicioDoDia.toISOString());
+  }
+  if (dataFim) {
+    const fimDoDia = new Date(`${dataFim}T23:59:59.999`);
+    queryPedidos = queryPedidos.lte("created_at", fimDoDia.toISOString());
+  }
 
   const [{ data: pedidos }, { data: empresa }] = await Promise.all([
-    supabase
-      .from("pedidos")
-      .select(
-        "*, pedido_itens(id, quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(id, nome), combos(nome))",
-      )
-      .eq("origem", "balcao")
-      .gte("created_at", inicioDoDia.toISOString())
-      .lte("created_at", fimDoDia.toISOString())
-      .order("created_at", { ascending: false }),
+    queryPedidos.order("created_at", { ascending: false }),
     supabase
       .from("empresas")
       .select("nome, mensagem_agradecimento, impressao_automatica, impressora_automatica")
@@ -57,7 +66,8 @@ export default async function PedidosPage({
         }}
         impressaoAutomatica={empresa?.impressao_automatica ?? false}
         impressoraAutomatica={empresa?.impressora_automatica ?? null}
-        data={dataParam ?? formatarDataLocal(new Date())}
+        dataInicio={dataInicioParam ?? (temFiltroData ? "" : hoje)}
+        dataFim={dataFimParam ?? (temFiltroData ? "" : hoje)}
       />
     </div>
   );
