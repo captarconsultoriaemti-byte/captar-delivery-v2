@@ -36,8 +36,10 @@ export interface PedidoHtml {
 
 export type Via = "ambas" | "cliente" | "cozinha";
 
-// impressora termica de 58mm: 32 caracteres por linha em fonte monoespacada
-const LARGURA = 32;
+// impressora termica de 58mm: 30 caracteres por linha em fonte monoespacada
+// (com margem de seguranca pra variacao de metrica de fonte entre o preview
+// do navegador e o motor real de impressao)
+const LARGURA = 30;
 
 function formatarMoeda(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -142,16 +144,16 @@ function gerarTextoViaCliente(
   pedido: PedidoHtml,
   empresa: { nome: string; mensagem_agradecimento: string | null },
 ): string {
-  const endereco = [
-    pedido.logradouro,
-    pedido.numero && `nº ${pedido.numero}`,
-    pedido.complemento,
+  const enderecoLinha1 = [pedido.logradouro, pedido.numero && `nº ${pedido.numero}`, pedido.complemento]
+    .filter(Boolean)
+    .join(", ");
+  const enderecoLinha2 = [
     pedido.bairro,
     pedido.cidade && pedido.estado ? `${pedido.cidade}/${pedido.estado}` : pedido.cidade,
-    pedido.cep && `CEP ${pedido.cep}`,
   ]
     .filter(Boolean)
     .join(", ");
+  const temEndereco = Boolean(enderecoLinha1 || enderecoLinha2 || pedido.cep);
 
   const subtotal = pedido.pedido_itens.reduce(
     (soma, item) => soma + item.preco_unitario * item.quantidade,
@@ -168,11 +170,15 @@ function gerarTextoViaCliente(
 
   linhas.push(...quebrarTexto(`${tipoPedido(pedido)} - ${pedido.cliente_nome || "Balcão"}`));
   if (pedido.documento_fiscal) {
-    linhas.push(...quebrarTexto(`CPF/CNPJ: ${pedido.documento_fiscal}`));
+    linhas.push("CPF/CNPJ:");
+    linhas.push(...quebrarTexto(pedido.documento_fiscal));
   }
   if (pedido.cliente_telefone) linhas.push(...quebrarTexto(`Tel: ${pedido.cliente_telefone}`));
-  if (pedido.tipo_entrega === "entrega" && endereco) {
-    linhas.push(...quebrarTexto(endereco, "End: "));
+  if (pedido.tipo_entrega === "entrega" && temEndereco) {
+    linhas.push("Endereço:");
+    if (enderecoLinha1) linhas.push(...quebrarTexto(enderecoLinha1));
+    if (enderecoLinha2) linhas.push(...quebrarTexto(enderecoLinha2));
+    if (pedido.cep) linhas.push(...quebrarTexto(`CEP ${pedido.cep}`));
   }
   linhas.push(separador());
 
@@ -221,7 +227,7 @@ function gerarTextoViaCozinha(pedido: PedidoHtml): string {
 }
 
 function paraHtmlPre(texto: string): string {
-  return `<pre style="font-family:'Courier New',monospace;font-size:11px;font-weight:bold;line-height:1.35;color:#000000;margin:0;padding:0;width:58mm;white-space:pre-wrap;word-break:break-word;">${escaparHtml(texto)}</pre>`;
+  return `<pre style="font-family:'Courier New',monospace;font-size:11px;font-weight:bold;line-height:1.35;color:#000000;margin:0;padding:0;width:${LARGURA}ch;white-space:pre-wrap;word-break:break-word;">${escaparHtml(texto)}</pre>`;
 }
 
 export function gerarHtmlComprovante(
