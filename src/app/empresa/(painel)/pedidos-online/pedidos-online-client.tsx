@@ -308,7 +308,7 @@ export function PedidosOnlineClient({
           const { data: pedidoCompleto } = await supabase
             .from("pedidos")
             .select(
-              "id, cliente_nome, cliente_telefone, documento_fiscal, observacoes, total, taxa_entrega, desconto_tipo, desconto_valor, forma_pagamento, origem, tipo_entrega, created_at, closed_at, cep, logradouro, numero, complemento, bairro, cidade, estado, pedido_itens(quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(id, nome), combos(nome))",
+              "id, cliente_nome, cliente_telefone, documento_fiscal, observacoes, total, taxa_entrega, desconto_tipo, desconto_valor, forma_pagamento, origem, tipo_entrega, created_at, closed_at, data_pedido, cep, logradouro, numero, complemento, bairro, cidade, estado, pedido_itens(quantidade, preco_unitario, opcionais_selecionados, observacao, produtos(id, nome), combos(nome))",
             )
             .eq("id", novoPedido.id)
             .single();

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X, Star, Plus, UserPlus, Search, PenLine, ChevronLeft, Check } from "lucide-react";
+import { X, Star, Plus, UserPlus, Search, PenLine, ChevronLeft, Check, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { IconAction } from "@/components/ui/icon-action";
 import { Combobox } from "@/components/ui/combobox";
@@ -117,6 +117,7 @@ interface PedidoExistente {
   documento_fiscal: string | null;
   observacoes: string | null;
   tipo_entrega: "entrega" | "retirada" | null;
+  data_pedido: string | null;
   cep: string | null;
   logradouro: string | null;
   numero: string | null;
@@ -162,6 +163,14 @@ function abrirImpressao(pedidoId: string, via: "ambas" | "cliente" | "cozinha" =
   window.open(`/empresa/pedidos/${pedidoId}/imprimir?via=${via}`, "_blank");
 }
 
+function dataDeHoje(): string {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoje.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
 export function NovoPedidoClient({
   produtos,
   categorias,
@@ -201,6 +210,7 @@ export function NovoPedidoClient({
   const [documentoFiscal, setDocumentoFiscal] = useState(
     maskCpfCnpj(pedidoExistente?.documento_fiscal ?? ""),
   );
+  const [dataPedido, setDataPedido] = useState(pedidoExistente?.data_pedido ?? dataDeHoje());
 
   const [tipoEntrega, setTipoEntrega] = useState<"entrega" | "retirada">(
     pedidoExistente?.tipo_entrega ?? "retirada",
@@ -743,6 +753,11 @@ export function NovoPedidoClient({
       return;
     }
 
+    if (!dataPedido) {
+      showToast("error", "Informe a data do pedido.");
+      return;
+    }
+
     const erroDesconto = validarDescontoLocal();
     if (erroDesconto) {
       showToast("error", erroDesconto);
@@ -770,6 +785,7 @@ export function NovoPedidoClient({
       tipoEntrega,
       endereco: { cep, logradouro, numero, complemento, bairro, cidade, estado },
       taxaEntregaManual: taxaEntregaOverride,
+      dataPedido,
     });
     setSalvando(null);
 
@@ -827,6 +843,7 @@ export function NovoPedidoClient({
         tipo_entrega: tipoEntrega,
         created_at: new Date().toISOString(),
         closed_at: new Date().toISOString(),
+        data_pedido: dataPedido,
         cep: tipoEntrega === "entrega" ? cep : null,
         logradouro: tipoEntrega === "entrega" ? logradouro : null,
         numero: tipoEntrega === "entrega" ? numero : null,
@@ -857,6 +874,11 @@ export function NovoPedidoClient({
   async function handleFecharCobrar() {
     if (!clienteNome.trim()) {
       showToast("error", "Informe o nome do cliente.");
+      return;
+    }
+
+    if (!dataPedido) {
+      showToast("error", "Informe a data do pedido.");
       return;
     }
 
@@ -897,6 +919,7 @@ export function NovoPedidoClient({
       tipoEntrega,
       endereco: { cep, logradouro, numero, complemento, bairro, cidade, estado },
       taxaEntregaManual: taxaEntregaOverride,
+      dataPedido,
     });
     setSalvando(null);
 
@@ -1098,6 +1121,23 @@ export function NovoPedidoClient({
               Adicionar Cliente
             </button>
           )}
+
+          <div className="mb-3">
+            <label className="mb-1 block text-xs font-medium text-secondary">Data do pedido</label>
+            <div className="relative">
+              <Calendar
+                size={15}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-secondary"
+              />
+              <input
+                type="date"
+                required
+                value={dataPedido}
+                onChange={(e) => setDataPedido(e.target.value)}
+                className="w-full rounded-md border border-secondary/55 py-2 pl-9 pr-3 text-sm focus:border-primary focus:outline-none"
+              />
+            </div>
+          </div>
 
           <div className="mb-3">
             <label className="mb-1 block text-xs font-medium text-secondary">

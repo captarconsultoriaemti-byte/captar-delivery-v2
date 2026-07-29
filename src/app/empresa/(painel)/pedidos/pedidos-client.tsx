@@ -55,6 +55,7 @@ interface Pedido {
   forma_pagamento: string | null;
   created_at: string;
   closed_at: string | null;
+  data_pedido: string | null;
   tipo_entrega: "entrega" | "retirada" | null;
   cep: string | null;
   logradouro: string | null;
@@ -150,6 +151,7 @@ export function PedidosClient({
         tipo_entrega: pedido.tipo_entrega ?? "retirada",
         created_at: pedido.created_at,
         closed_at: pedido.closed_at,
+        data_pedido: pedido.data_pedido,
         cep: pedido.cep,
         logradouro: pedido.logradouro,
         numero: pedido.numero,

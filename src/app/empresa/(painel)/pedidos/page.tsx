@@ -37,13 +37,20 @@ export default async function PedidosPage({
     )
     .eq("origem", "balcao");
 
+  // filtra por data_pedido; pedidos sem data_pedido preenchida (anteriores a
+  // essa coluna existir, ou de outras origens) caem no fallback por created_at,
+  // pra nao sumirem do historico
   if (dataInicio) {
-    const inicioDoDia = new Date(`${dataInicio}T00:00:00`);
-    queryPedidos = queryPedidos.gte("created_at", inicioDoDia.toISOString());
+    const inicioDoDia = new Date(`${dataInicio}T00:00:00`).toISOString();
+    queryPedidos = queryPedidos.or(
+      `data_pedido.gte.${dataInicio},and(data_pedido.is.null,created_at.gte.${inicioDoDia})`,
+    );
   }
   if (dataFim) {
-    const fimDoDia = new Date(`${dataFim}T23:59:59.999`);
-    queryPedidos = queryPedidos.lte("created_at", fimDoDia.toISOString());
+    const fimDoDia = new Date(`${dataFim}T23:59:59.999`).toISOString();
+    queryPedidos = queryPedidos.or(
+      `data_pedido.lte.${dataFim},and(data_pedido.is.null,created_at.lte.${fimDoDia})`,
+    );
   }
 
   const [{ data: pedidos }, { data: empresa }] = await Promise.all([

@@ -44,6 +44,7 @@ interface SalvarPedidoInput {
   tipoEntrega: "entrega" | "retirada";
   endereco: EnderecoEntregaInput;
   taxaEntregaManual: number | null;
+  dataPedido: string;
 }
 
 function calcularTotal(itens: ItemCarrinho[]): number {
@@ -210,6 +211,10 @@ export async function salvarPedido(
     return { error: "Informe o nome do cliente." };
   }
 
+  if (!input.dataPedido.trim()) {
+    return { error: "Informe a data do pedido." };
+  }
+
   const erroEndereco = validarEndereco(input.tipoEntrega, input.endereco);
   if (erroEndereco) return { error: erroEndereco };
 
@@ -283,6 +288,7 @@ export async function salvarPedido(
     total,
     taxa_entrega: taxaEntrega,
     tipo_entrega: input.tipoEntrega,
+    data_pedido: input.dataPedido,
     ...colunasEndereco,
     desconto_tipo: input.descontoTipo,
     desconto_valor: input.descontoTipo ? input.descontoValor : null,

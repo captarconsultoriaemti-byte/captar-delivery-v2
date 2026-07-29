@@ -24,6 +24,7 @@ export interface PedidoHtml {
   tipo_entrega: "entrega" | "retirada";
   created_at: string;
   closed_at: string | null;
+  data_pedido: string | null;
   cep: string | null;
   logradouro: string | null;
   numero: string | null;
@@ -104,6 +105,13 @@ function quebrarTexto(texto: string, prefixo = ""): string[] {
 
 function numeroPedido(pedido: PedidoHtml): string {
   return pedido.id ? pedido.id.slice(0, 8).toUpperCase() : "-";
+}
+
+// data_pedido vem como data pura ("YYYY-MM-DD", sem hora) - interpretar como
+// horario local (nao UTC) evita que vire o dia anterior em fusos negativos
+function formatarDataPedido(valor: string): string {
+  const data = valor.includes("T") ? new Date(valor) : new Date(`${valor}T00:00:00`);
+  return data.toLocaleDateString("pt-BR");
 }
 
 function tipoPedido(pedido: PedidoHtml): string {
@@ -193,7 +201,7 @@ function gerarTextoViaCliente(pedido: PedidoHtml, empresa: EmpresaHtml): string 
   }
   linhas.push(separador());
 
-  linhas.push(centralizar(new Date(pedido.closed_at ?? pedido.created_at).toLocaleString("pt-BR")));
+  linhas.push(centralizar(formatarDataPedido(pedido.data_pedido ?? pedido.created_at)));
   linhas.push(centralizar(`Pedido #${numeroPedido(pedido)}`));
   linhas.push(separador());
 
@@ -240,7 +248,12 @@ function gerarTextoViaCozinha(pedido: PedidoHtml): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-  linhas.push(centralizar(`${pedido.origem === "link" ? "Pedido pelo link" : "Venda direta"} ${hora}`));
+  const dataPedidoTexto = formatarDataPedido(pedido.data_pedido ?? pedido.created_at);
+  linhas.push(
+    centralizar(
+      `${pedido.origem === "link" ? "Pedido pelo link" : "Venda direta"} ${dataPedidoTexto} ${hora}`,
+    ),
+  );
   linhas.push(centralizar(tipoPedido(pedido)));
   if (pedido.cliente_nome) linhas.push(centralizar(pedido.cliente_nome));
   linhas.push(separador());
