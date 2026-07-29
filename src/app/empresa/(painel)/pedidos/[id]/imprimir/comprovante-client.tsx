@@ -2,7 +2,12 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { gerarTextoViaCliente, gerarTextoViaCozinha, type PedidoHtml } from "@/lib/utils/comprovante-html";
+import {
+  gerarTextoViaCliente,
+  gerarTextoViaCozinha,
+  type EmpresaHtml,
+  type PedidoHtml,
+} from "@/lib/utils/comprovante-html";
 
 export type Via = "ambas" | "cliente" | "cozinha";
 
@@ -13,7 +18,7 @@ export function ComprovanteClient({
   autoFechar,
 }: {
   pedido: PedidoHtml;
-  empresa: { nome: string; mensagem_agradecimento: string | null };
+  empresa: EmpresaHtml;
   via: Via;
   autoFechar?: boolean;
 }) {

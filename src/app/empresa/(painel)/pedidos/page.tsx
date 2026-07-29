@@ -50,7 +50,9 @@ export default async function PedidosPage({
     queryPedidos.order("created_at", { ascending: false }),
     supabase
       .from("empresas")
-      .select("nome, mensagem_agradecimento, impressao_automatica, impressora_automatica")
+      .select(
+        "nome, mensagem_agradecimento, impressao_automatica, impressora_automatica, cnpj, cep, logradouro, numero, bairro, cidade, estado",
+      )
       .eq("id", profile!.empresa_id)
       .single(),
   ]);
@@ -63,6 +65,13 @@ export default async function PedidosPage({
         empresa={{
           nome: empresa?.nome ?? "",
           mensagem_agradecimento: empresa?.mensagem_agradecimento ?? null,
+          cnpj: empresa?.cnpj ?? null,
+          cep: empresa?.cep ?? null,
+          logradouro: empresa?.logradouro ?? null,
+          numero: empresa?.numero ?? null,
+          bairro: empresa?.bairro ?? null,
+          cidade: empresa?.cidade ?? null,
+          estado: empresa?.estado ?? null,
         }}
         impressaoAutomatica={empresa?.impressao_automatica ?? false}
         impressoraAutomatica={empresa?.impressora_automatica ?? null}

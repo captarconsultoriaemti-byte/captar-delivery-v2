@@ -17,7 +17,7 @@ import {
   type EtapaLink,
 } from "@/lib/actions/pedidos-online";
 import { imprimirHtml } from "@/lib/qz";
-import { gerarHtmlComprovante } from "@/lib/utils/comprovante-html";
+import { gerarHtmlComprovante, type EmpresaHtml } from "@/lib/utils/comprovante-html";
 import { printReceipt } from "@/lib/print/print-receipt";
 import { formatarOpcionaisComQuantidade } from "@/lib/utils/opcionais";
 
@@ -251,7 +251,7 @@ export function PedidosOnlineClient({
 }: {
   pedidos: Pedido[];
   empresaId: string;
-  empresaInfo: { nome: string; mensagem_agradecimento: string | null };
+  empresaInfo: EmpresaHtml;
   impressaoAutomatica: boolean;
   impressoraAutomatica: string | null;
   tempoEstimadoPreparo: number | null;

@@ -29,7 +29,7 @@ export default async function ImprimirPedidoPage({
       .single(),
     supabase
       .from("empresas")
-      .select("nome, mensagem_agradecimento")
+      .select("nome, mensagem_agradecimento, cnpj, cep, logradouro, numero, bairro, cidade, estado")
       .eq("id", profile.empresa_id)
       .single(),
   ]);

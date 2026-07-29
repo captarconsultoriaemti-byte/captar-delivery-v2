@@ -46,7 +46,7 @@ export default async function NovoPedidoPage({
       supabase
         .from("empresas")
         .select(
-          "opcionais_habilitados, nome, mensagem_agradecimento, impressao_automatica, impressora_automatica, taxa_entrega_padrao",
+          "opcionais_habilitados, nome, mensagem_agradecimento, impressao_automatica, impressora_automatica, taxa_entrega_padrao, cnpj, cep, logradouro, numero, bairro, cidade, estado",
         )
         .eq("id", profile!.empresa_id)
         .single(),
@@ -106,6 +106,13 @@ export default async function NovoPedidoPage({
         empresa={{
           nome: empresa?.nome ?? "",
           mensagem_agradecimento: empresa?.mensagem_agradecimento ?? null,
+          cnpj: empresa?.cnpj ?? null,
+          cep: empresa?.cep ?? null,
+          logradouro: empresa?.logradouro ?? null,
+          numero: empresa?.numero ?? null,
+          bairro: empresa?.bairro ?? null,
+          cidade: empresa?.cidade ?? null,
+          estado: empresa?.estado ?? null,
         }}
         impressaoAutomatica={empresa?.impressao_automatica ?? false}
         impressoraAutomatica={empresa?.impressora_automatica ?? null}

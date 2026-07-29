@@ -19,7 +19,7 @@ import {
   type PagamentoDividido,
 } from "@/lib/actions/pedidos";
 import { imprimirHtml } from "@/lib/qz";
-import { gerarHtmlComprovante } from "@/lib/utils/comprovante-html";
+import { gerarHtmlComprovante, type EmpresaHtml } from "@/lib/utils/comprovante-html";
 import { printReceipt } from "@/lib/print/print-receipt";
 import { maskCpfCnpj } from "@/lib/utils/masks";
 import { formatarOpcionaisComQuantidade } from "@/lib/utils/opcionais";
@@ -77,7 +77,7 @@ export function PedidosClient({
   dataFim,
 }: {
   pedidos: Pedido[];
-  empresa: { nome: string; mensagem_agradecimento: string | null };
+  empresa: EmpresaHtml;
   impressaoAutomatica: boolean;
   impressoraAutomatica: string | null;
   dataInicio: string;

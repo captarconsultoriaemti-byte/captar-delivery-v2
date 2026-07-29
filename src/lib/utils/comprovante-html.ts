@@ -34,6 +34,18 @@ export interface PedidoHtml {
   pedido_itens: PedidoItemHtml[];
 }
 
+export interface EmpresaHtml {
+  nome: string;
+  mensagem_agradecimento: string | null;
+  cnpj: string | null;
+  cep: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+}
+
 export type Via = "ambas" | "cliente" | "cozinha";
 
 // impressora termica de 58mm: 30 caracteres por linha em fonte monoespacada
@@ -140,10 +152,7 @@ function linhasItemCozinha(item: PedidoItemHtml): string[] {
   return linhas;
 }
 
-function gerarTextoViaCliente(
-  pedido: PedidoHtml,
-  empresa: { nome: string; mensagem_agradecimento: string | null },
-): string {
+function gerarTextoViaCliente(pedido: PedidoHtml, empresa: EmpresaHtml): string {
   const enderecoLinha1 = [pedido.logradouro, pedido.numero && `nº ${pedido.numero}`, pedido.complemento]
     .filter(Boolean)
     .join(", ");
@@ -155,6 +164,17 @@ function gerarTextoViaCliente(
     .join(", ");
   const temEndereco = Boolean(enderecoLinha1 || enderecoLinha2 || pedido.cep);
 
+  const empresaEnderecoLinha1 = [empresa.logradouro, empresa.numero && `nº ${empresa.numero}`]
+    .filter(Boolean)
+    .join(", ");
+  const empresaEnderecoLinha2 = [
+    empresa.bairro,
+    empresa.cidade && empresa.estado ? `${empresa.cidade}/${empresa.estado}` : empresa.cidade,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const temEmpresaEndereco = Boolean(empresaEnderecoLinha1 || empresaEnderecoLinha2 || empresa.cep);
+
   const subtotal = pedido.pedido_itens.reduce(
     (soma, item) => soma + item.preco_unitario * item.quantidade,
     0,
@@ -164,6 +184,15 @@ function gerarTextoViaCliente(
 
   const linhas: string[] = [];
   linhas.push(centralizar(empresa.nome.toUpperCase()));
+  if (empresa.cnpj) linhas.push(...quebrarTexto(`CNPJ: ${empresa.cnpj}`));
+  if (temEmpresaEndereco) {
+    linhas.push("Endereço:");
+    if (empresaEnderecoLinha1) linhas.push(...quebrarTexto(empresaEnderecoLinha1));
+    if (empresaEnderecoLinha2) linhas.push(...quebrarTexto(empresaEnderecoLinha2));
+    if (empresa.cep) linhas.push(...quebrarTexto(`CEP ${empresa.cep}`));
+  }
+  linhas.push(separador());
+
   linhas.push(centralizar(new Date(pedido.closed_at ?? pedido.created_at).toLocaleString("pt-BR")));
   linhas.push(centralizar(`Pedido #${numeroPedido(pedido)}`));
   linhas.push(separador());
@@ -230,11 +259,7 @@ function paraHtmlPre(texto: string): string {
   return `<pre style="font-family:'Courier New',monospace;font-size:11px;font-weight:bold;line-height:1.35;color:#000000;margin:0;padding:0;width:${LARGURA}ch;white-space:pre-wrap;word-break:break-word;">${escaparHtml(texto)}</pre>`;
 }
 
-export function gerarHtmlComprovante(
-  pedido: PedidoHtml,
-  empresa: { nome: string; mensagem_agradecimento: string | null },
-  via: Via,
-): string {
+export function gerarHtmlComprovante(pedido: PedidoHtml, empresa: EmpresaHtml, via: Via): string {
   console.log("[gerarHtmlComprovante] endereco recebido:", {
     pedidoId: pedido.id,
     tipo_entrega: pedido.tipo_entrega,

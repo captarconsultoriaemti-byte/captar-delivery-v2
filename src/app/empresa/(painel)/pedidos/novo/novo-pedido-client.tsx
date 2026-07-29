@@ -18,7 +18,7 @@ import { ClienteFormModal } from "@/app/empresa/(painel)/clientes/cliente-form-m
 import type { ClienteCriado } from "@/lib/actions/clientes";
 import { createClient } from "@/lib/supabase/client";
 import { imprimirHtml } from "@/lib/qz";
-import { gerarHtmlComprovante } from "@/lib/utils/comprovante-html";
+import { gerarHtmlComprovante, type EmpresaHtml } from "@/lib/utils/comprovante-html";
 import { printReceipt } from "@/lib/print/print-receipt";
 import {
   buscarCidadesPorEstado,
@@ -182,7 +182,7 @@ export function NovoPedidoClient({
   clientes: ClienteCadastrado[];
   opcionaisHabilitados: boolean;
   pedidoExistente: PedidoExistente | null;
-  empresa: { nome: string; mensagem_agradecimento: string | null };
+  empresa: EmpresaHtml;
   impressaoAutomatica: boolean;
   impressoraAutomatica: string | null;
 }) {
