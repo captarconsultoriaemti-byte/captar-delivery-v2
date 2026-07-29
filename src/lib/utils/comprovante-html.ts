@@ -167,6 +167,9 @@ function gerarTextoViaCliente(
   linhas.push(separador());
 
   linhas.push(...quebrarTexto(`${tipoPedido(pedido)} - ${pedido.cliente_nome || "Balcão"}`));
+  if (pedido.documento_fiscal) {
+    linhas.push(...quebrarTexto(`CPF/CNPJ: ${pedido.documento_fiscal}`));
+  }
   if (pedido.cliente_telefone) linhas.push(...quebrarTexto(`Tel: ${pedido.cliente_telefone}`));
   if (pedido.tipo_entrega === "entrega" && endereco) {
     linhas.push(...quebrarTexto(endereco, "End: "));
@@ -218,7 +221,7 @@ function gerarTextoViaCozinha(pedido: PedidoHtml): string {
 }
 
 function paraHtmlPre(texto: string): string {
-  return `<pre style="font-family:'Courier New',monospace;font-size:10pt;line-height:1.35;color:#000;margin:0;padding:0;width:${LARGURA}ch;white-space:pre-wrap;word-break:break-word;">${escaparHtml(texto)}</pre>`;
+  return `<pre style="font-family:'Courier New',monospace;font-size:11px;font-weight:bold;line-height:1.35;color:#000000;margin:0;padding:0;width:58mm;white-space:pre-wrap;word-break:break-word;">${escaparHtml(texto)}</pre>`;
 }
 
 export function gerarHtmlComprovante(

@@ -62,7 +62,7 @@ export function ComprovanteClient({
 
       {mostrarCliente && (
         <pre
-          className={`mx-auto w-[32ch] whitespace-pre-wrap break-words font-mono text-[10pt] leading-snug text-black ${
+          className={`mx-auto w-[58mm] whitespace-pre-wrap break-words font-mono text-[11px] font-bold leading-snug text-black ${
             mostrarCozinha ? "break-after-page" : ""
           }`}
         >
@@ -70,7 +70,7 @@ export function ComprovanteClient({
         </pre>
       )}
       {mostrarCozinha && (
-        <pre className="mx-auto w-[32ch] whitespace-pre-wrap break-words font-mono text-[10pt] leading-snug text-black">
+        <pre className="mx-auto w-[58mm] whitespace-pre-wrap break-words font-mono text-[11px] font-bold leading-snug text-black">
           {gerarTextoViaCozinha(pedido)}
         </pre>
       )}
